@@ -1,0 +1,1731 @@
+
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Sales Suite | Audit & Nabídka</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        tailwind.config = { theme: { extend: {
+            fontFamily: { sans: ['Inter', 'sans-serif'] },
+            colors: { brand: {50:'#f0fdf4',100:'#dcfce7',500:'#16a34a',600:'#15803d',700:'#166534'}, surface:'#fcfcfc', border:'#e5e7eb' }
+        }}};
+    </script>
+    <style>
+        body { background-color: #f3f4f6; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .card-minimal { background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 1px 2px 0 rgba(0,0,0,0.02); transition:border-color .2s, box-shadow .2s; }
+        .card-minimal:hover { border-color:#d1d5db; box-shadow:0 4px 6px -1px rgba(0,0,0,.05),0 2px 4px -1px rgba(0,0,0,.03); }
+        .score-circle { position:relative; width:160px; height:160px; border-radius:50%; display:flex; justify-content:center; align-items:center; transition:background .8s ease-out; }
+        .score-circle::before { content:''; position:absolute; width:128px; height:128px; background:#fff; border-radius:50%; }
+        .podium-step { width:33%; display:flex; flex-direction:column; justify-content:space-between; align-items:center; padding:20px 10px; border-radius:12px 12px 0 0; color:#fff; text-align:center; transition:height .5s ease-out; }
+        .podium-1 { height:100%; order:2; } .podium-2 { height:82%; order:1; } .podium-3 { height:66%; order:3; }
+        .collapse-panel { max-height:0; overflow:hidden; transition:max-height .4s ease-out; }
+        .collapse-panel.open { max-height:2400px; }
+        .chart-bar { transition: width .6s ease-out; }
+        .pac-container { z-index:1050 !important; border-radius:10px; border:1px solid #e5e7eb; box-shadow:0 8px 20px rgba(0,0,0,.08); font-family:'Inter',sans-serif; margin-top:6px; }
+        input[type="checkbox"] { accent-color:#16a34a; width:1.15rem; height:1.15rem; cursor:pointer; flex-shrink:0; }
+        input[type="checkbox"]:disabled { accent-color:#86efac; cursor:not-allowed; }
+        .num-input { width:64px; padding:4px 6px; border:1px solid #d1d5db; border-radius:8px; text-align:center; font-size:.85rem; outline:none; }
+        .num-input:focus { border-color:#16a34a; }
+        /* PDF render containers */
+        .pdf-page { position:relative; font-family:'Inter',sans-serif; color:#3c4043; width:800px; margin:0 auto; padding:40px 40px 70px 40px; min-height:1123px; background:#fff; }
+        .pdf-footer { position:absolute; bottom:30px; left:40px; right:40px; padding-top:8px; border-top:2px solid #16a34a; text-align:center; font-size:11px; color:#777; }
+    </style>
+</head>
+<body class="font-sans text-gray-900 h-screen flex overflow-hidden antialiased">
+
+    <div id="mobile-overlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-30 hidden md:hidden transition-opacity opacity-0 duration-300"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="w-64 bg-surface border-r border-border flex flex-col flex-shrink-0 z-40 fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-border shrink-0">
+            <img src="https://viewcz.com/images/svg/head-logo.svg" alt="View Logo" class="h-8 object-contain">
+            <button onclick="toggleMobileMenu()" class="md:hidden text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-1">
+            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2" data-i18n="navTool"></p>
+            <button id="nav-welcome" onclick="goToView('welcome')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition text-left">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center"></i> <span data-i18n="navNew"></span>
+            </button>
+            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-6" data-i18n="navWorkflow"></p>
+            <button id="nav-audit" onclick="goToView('audit')" class="nav-item nav-step w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition text-left" disabled>
+                <span class="w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center step-num">1</span> <span data-i18n="navAudit"></span>
+            </button>
+            <button id="nav-comparison" onclick="goToView('comparison')" class="nav-item nav-step w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition text-left" disabled>
+                <span class="w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center step-num">2</span> <span data-i18n="navComparison"></span>
+            </button>
+            <button id="nav-solution" onclick="goToView('solution')" class="nav-item nav-step w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition text-left" disabled>
+                <span class="w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center step-num">3</span> <span data-i18n="navSolution"></span>
+            </button>
+            <button id="nav-pricing" onclick="goToView('pricing')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition text-left">
+                <span class="w-5 h-5 rounded-full border text-[11px] font-bold flex items-center justify-center step-num">4</span> <span data-i18n="navPricing"></span>
+            </button>
+            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-6" data-i18n="navMore"></p>
+            <button id="nav-references" onclick="goToView('references')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition text-left">
+                <i class="fa-solid fa-users w-5 text-center"></i> <span data-i18n="navReferences"></span>
+            </button>
+        </nav>
+        <div class="p-4 border-t border-border bg-gray-50">
+            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1" data-i18n="sideFootT"></p>
+            <p class="text-xs text-gray-500" data-i18n="sideFootD"></p>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        <header class="h-16 bg-surface border-b border-border flex items-center justify-between px-4 sm:px-8 z-20 shrink-0 gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <button onclick="toggleMobileMenu()" class="md:hidden text-gray-500 hover:text-gray-700 transition"><i class="fa-solid fa-bars text-xl"></i></button>
+                <h1 id="view-title" class="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight truncate"></h1>
+            </div>
+            <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+                <select id="lang-select" onchange="setLang(this.value)" class="border border-gray-300 bg-white text-gray-700 py-1.5 px-2 rounded-lg text-xs font-bold outline-none cursor-pointer hover:bg-gray-50">
+                    <option value="cs">🇨🇿 CZ</option><option value="en">🇬🇧 EN</option><option value="sk">🇸🇰 SK</option><option value="hu">🇭🇺 HU</option>
+                </select>
+                <div id="header-score" class="hidden items-center gap-2 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 shadow-sm">
+                    <span id="header-score-dot" class="w-2.5 h-2.5 rounded-full bg-gray-300"></span>
+                    <span class="text-xs text-gray-500 font-medium hidden sm:inline" data-i18n="scoreChip"></span>
+                    <span id="header-score-value" class="text-sm font-bold text-gray-900">–</span>
+                </div>
+                <div id="header-company" class="hidden items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <p id="header-company-name" class="text-sm font-semibold text-gray-900 leading-none truncate max-w-[200px]"></p>
+                        <p id="header-company-rating" class="text-[11px] text-gray-500 mt-1"></p>
+                    </div>
+                    <div id="header-company-avatar" class="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold shadow-sm">–</div>
+                </div>
+            </div>
+        </header>
+
+        <main id="main-scroll" class="flex-1 overflow-y-auto p-4 sm:p-8 relative bg-gray-100">
+            <div id="api-error-banner" class="hidden max-w-6xl mx-auto mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex gap-3 items-start">
+                <div class="w-9 h-9 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="text-sm text-red-700 leading-relaxed flex-1 min-w-0">
+                    <span></span>
+                    <div id="api-key-form" class="mt-3 flex flex-col sm:flex-row gap-2">
+                        <input id="api-key-input" type="text" spellcheck="false" class="flex-1 min-w-0 bg-white border border-red-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-red-400 font-mono">
+                        <button id="api-key-apply" onclick="applyApiKeyOverride()" class="bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-red-700 transition shadow-sm shrink-0"></button>
+                    </div>
+                </div>
+            </div>
+            <section id="welcome-view" class="max-w-3xl mx-auto"></section>
+            <section id="audit-view" class="hidden max-w-6xl mx-auto space-y-6"></section>
+            <section id="comparison-view" class="hidden max-w-6xl mx-auto space-y-6"></section>
+            <section id="solution-view" class="hidden max-w-4xl mx-auto space-y-6"></section>
+            <section id="pricing-view" class="hidden max-w-6xl mx-auto space-y-6"></section>
+            <section id="references-view" class="hidden max-w-6xl mx-auto space-y-6"></section>
+        </main>
+    </div>
+
+    <!-- PDF CLIENT INFO MODAL -->
+    <div id="pdf-modal" class="hidden fixed inset-0 bg-gray-900/70 z-[70] flex items-center justify-center px-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-bold text-gray-900" data-i18n="mTitle"></h3>
+                <button onclick="closePdfModal()" class="text-gray-400 hover:text-gray-600 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div><label class="block text-sm font-medium text-gray-600 mb-1" data-i18n="mCompany"></label><input id="m-company" type="text" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-brand-500"></div>
+                <div><label class="block text-sm font-medium text-gray-600 mb-1" data-i18n="mIco"></label><input id="m-ico" type="text" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-brand-500"></div>
+                <div><label class="block text-sm font-medium text-gray-600 mb-1" data-i18n="mPerson"></label><input id="m-person" type="text" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-brand-500"></div>
+                <div><label class="block text-sm font-medium text-gray-600 mb-1">Email</label><input id="m-email" type="email" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-brand-500"></div>
+                <div><label class="block text-sm font-medium text-gray-600 mb-1" data-i18n="mPhone"></label><input id="m-phone" type="tel" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-brand-500"></div>
+                <label class="flex items-center gap-3 pt-2 border-t border-gray-100 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input id="m-only-quote" type="checkbox"> <span data-i18n="mOnlyQuote"></span>
+                </label>
+            </div>
+            <div class="px-6 pb-6">
+                <button id="m-generate-btn" onclick="generatePdf()" class="w-full bg-brand-500 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-brand-600 transition shadow-sm"><i class="fa-solid fa-file-pdf mr-2"></i><span data-i18n="mGenerate"></span></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-5 py-3 rounded-lg shadow-xl opacity-0 pointer-events-none transition-all duration-300 z-[80] flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-brand-500"></i>
+        <span id="toast-message" class="text-sm font-medium"></span>
+    </div>
+
+    <div id="map-service-container" style="display:none"></div>
+    <div id="pdf-render-host" style="position:absolute; left:-9999px; top:0; width:950px;"></div>
+
+    <!-- POZOR: API klíč omezte v Google Cloud Console na vaši doménu (HTTP referrer) + Maps JavaScript API a Places API -->
+    <script> const API_KEY = "AIzaSyAnwJg7hLl05s-usDuSvrcM3nnu90dRczI"; </script>
+    <script>
+    // ===================== I18N =====================
+    const I18N = {
+    cs: {
+        navTool:'Nástroj', navNew:'Nová analýza', navWorkflow:'Prodejní proces', navAudit:'Audit profilu', navComparison:'Porovnání konkurence', navSolution:'Návrh řešení', navPricing:'Cenová nabídka', navMore:'Ostatní', navReferences:'Reference', sideFootT:'Interní nástroj View', sideFootD:'Audit, nabídka a reference pro obchodní tým.', scoreChip:'Skóre',
+        tWelcome:'View Sales Suite', tAudit:'Audit profilu', tComparison:'Porovnání s konkurencí', tSolution:'Návrh řešení', tPricing:'Cenová nabídka', tReferences:'Naši klienti',
+        wBadge:'Audit firemního profilu Google', wTitle:'Odhalte plný potenciál firemního profilu', wSubtitle:'Hloubkový audit vizitky na Google Mapách, porovnání s konkurencí, návrh řešení a cenová nabídka – vše v jednom navazujícím procesu.', wSearchPh:'Zadejte název a adresu firmy…',
+        wF1t:'Automatický audit', wF1d:'Načteme veřejná data profilu – kontakty, recenze, fotky i otevírací dobu – a spočítáme skóre.', wF2t:'Návrh řešení', wF2d:'Z nedostatků auditu sestavíme konkrétní kroky, jak klienta vystřelit nahoru.', wF3t:'Nabídka na klik', wF3d:'Z návrhu rovnou sestavíte cenovou nabídku a vygenerujete PDF pro klienta.',
+        loading:'Načítám…', missing:'Chybí', yes:'Ano', no:'Ne', auto:'auto', reviews:'recenzí',
+        showDays:'Zobrazit dny', hideDays:'Skrýt dny', showMap:'Zobrazit mapu', hideMap:'Skrýt mapu', showSV:'Zobrazit Street View', hideSV:'Skrýt Street View', svMissing:'Street View chybí', showReviews:'Zobrazit recenze', hideReviews:'Skrýt recenze',
+        errLoadCompany:'Nepodařilo se načíst detaily firmy. Zkuste to prosím znovu.', errNotFound:'Firmu se nepodařilo najít. Zkuste upřesnit název a město.',
+        apiAuthFail:'Google odmítl API klíč. Zkontrolujte v Google Cloud Console omezení klíče (HTTP referrery) a povolení Maps JavaScript API + Places API pro adresu, ze které aplikaci otevíráte.',
+        apiLoadFail:'Nepodařilo se načíst Google Maps skript. Zkontrolujte připojení k internetu a blokování skriptů (adblock, firewall).',
+        apiInitFail:'Google Maps se nepodařilo inicializovat. Otevřete konzoli prohlížeče (F12) – Google tam vypisuje důvod (nejčastěji omezení API klíče).', apiKeyPh:'Vložit jiný API klíč…', apiKeyApply:'Použít klíč a znovu načíst', apiKeyTemp:'Používá se dočasný API klíč z adresy. Pro trvalé nasazení jej vložte přímo do souboru.',
+        phase1:'Fáze 1: Automatický audit', phase1sub:'Veřejná data z Google Places', phase2:'Fáze 2: Manuální audit', phase2sub:'Doplní obchodník při kontrole profilu', scoreTitle:'Skóre optimalizace', scoreSub:'Aktualizuje se podle auditu', scoreNote:'Skóre vychází z automatických dat a manuálního auditu profilu.', scoreOverview:'Přehled hodnocení', subScores:'Dílčí oblasti',
+        ssBasic:'Základ', ssInfo:'Informace', ssContent:'Obsah', ssReputation:'Reputace', ssEngagement:'Aktivita',
+        catCategories:'Kategorie', catContact:'Kontaktní informace', catRating:'Hodnocení', catContent:'Obsah', catOther:'Ostatní',
+        lPrimary:'Primární kategorie', lSecondary:'Sekundární kategorie', lAddress:'Adresa', lWeb:'Web', lPhone:'Telefon', lPlus:'Plus Code', lHours:'Otevírací doba', lGps:'GPS lokace', lSV:'Street View', lAvg:'Prům. hodnocení', lCount:'Počet hodnocení', lLatest:'Nejnovější recenze', lPhotos:'Počet fotek', lDesc:'Popis od vlastníka', lPriceLevel:'Cenová úroveň', lWheelchair:'Bezbariérový vchod',
+        vVerified:'Ověřený zápis', vUnverified:'Neověřený zápis', stVisible:'Viditelné', stSuspended:'Pozastavené', stInactive:'Neaktivní', btnGoogle:'Google', btnMaps:'Mapy',
+        warnT:'Kritický nedostatek: profil není ověřený', warnD:'Hrozí převzetí profilu, omezená správa, horší pozice ve vyhledávání i mapách a nižší důvěryhodnost u zákazníků.',
+        g_basic:'Základní stav profilu', g_info:'Informace, konzistence a pravidla', g_content:'Kvalita obsahu', g_products:'Produkty / Služby / Rezervace', g_posts:'Reklamní novinky', g_qa:'Otázky a odpovědi (Q&A)', g_inter:'Interakce',
+        c_claimed:'Ověřený firemní zápis', c_primary:'Primární kategorie', c_secondary:'Sekundární kategorie', c_address:'Adresa', c_website:'Webové stránky', c_phone:'Telefonní číslo', c_hours:'Otevírací doba', c_namespam:'Název firmy neobsahuje spam', c_nap:'Údaje (NAP) jsou shodné', c_ownerphotos:'Fotky od majitele (logo, titulní…)', c_photos10:'Více než 10 fotografií', c_streetview:'Profil obsahuje Street View', c_vtour:'Virtuální prohlídka', c_drone:'Dron', c_video:'Video', c_desc:'Vlastní popis firmy', c_attrs:'Atributy', c_products:'Sekce Produkty/Služby/Menu', c_services:'Sekce Rezervace/Objednávky', c_posts:'Aktivní příspěvky', c_posts14:'Aktivita příspěvků (< 14 dnů)', c_qa:'Majitel odpovídá na otázky', c_reply:'Reakce na recenze', c_messaging:'Aktivní zasílání zpráv (Chat)', c_whatsapp:'Tlačítko zpráv / WhatsApp',
+        rNo:'Ne', rPart:'Částečně', rYes:'Ano', s_rating40:'Hodnocení 4.0 ★ a více', s_reviews20:'Více než 20 recenzí', s_replyFull:'Reaguje na recenze', s_replyPart:'Reaguje na recenze (částečně)', s_replyNone:'Nereaguje na recenze',
+        cmpAddPh:'Přidat dalšího konkurenta ručně…', cmpAdd:'Přidat', cmpChart:'Hloubkový audit — skóre', cmpPodium:'Hodnocení zákazníků', cmpYour:'Vaše firma', cmpRemove:'Odebrat konkurenta', cmpMax:'Maximální počet konkurentů je {n}. Nejprve některého odeberte.', cmpScore:'skóre',
+        solSub:'Aktuální skóre profilu je {score} %. Následující kroky pomohou dosáhnout 100% potenciálu.', solCongrats:'Gratulujeme!', solCongratsD:'Profil je ve skvělé kondici. Nenašli jsme žádné zásadní nedostatky.', solWhy:'Proč je to důležité?', solHow:'Jak na to?', solRecs:'doporučení', solBuildQuote:'Sestavit cenovou nabídku',
+        sc_crit:'Kritické kroky', sc_basic:'Základní informace', sc_media:'Obsah a média', sc_inter:'Interakce se zákazníky', sc_adv:'Pokročilé funkce',
+        pPackages:'Zvýhodněné balíčky', pIndividual:'Jednotlivé služby', pGmf:'Google Moje Firma', pGmfManage:'Správa Google Moje Firma', pGsv:'Google Street View', pGsvAir:'Google Street View AIR', pExtras:'Doplňkové služby', pNfc:'NFC Produkty',
+        pPrice:'CENA', pSavings:'Úspora', pPayType:'Typ platby', pSelect:'Vybrat', pYearly:'Roční', pMonthly:'Měsíční', pQuarterly:'Kvartální', pHalf:'Půlroční',
+        pl_yearly:'roční platba', pl_monthly:'měsíční platba', pl_quarterly:'kvartální platba', pl_half:'půlroční platba', pl_onetime:'Jednorázová',
+        pSummary:'Rekapitulace nabídky', pRecurring:'Paušální platby', pOnetime:'Jednorázové platby', pTotDiscount:'Celková sleva', pTotRecurring:'Celkem paušální platby', pTotOnetime:'Celkem jednorázové platby', pTotal:'CELKEM (bez DPH)', pQty:'Počet', pDiscount:'Sleva', pGenerate:'Generovat nabídku (PDF)', pIndividualVal:'Individuální',
+        pRecoT:'Doporučeno na základě auditu', pRecoD:'Podle skóre {score} % doporučujeme balíček {pkg}.', pRecoApply:'Použít doporučení', pTierInfo:'Množstevní sleva: {from} → {to} Kč/ks',
+        f_opt:'Optimalizace profilu', f_manage:'Správa firemního profilu', f_news:'Novinky / měsíc', f_products:'Produktové portfolio / měsíc', f_gsv:'Google Street View', f_steps:'Počet kroků', f_photo:'Klasické foto', f_gsvair:'Google Street View AIR', f_360:'360° foto', f_video:'Video', f_ind:'Individuální',
+        n_pkg:'Balíček', n_manage:'Správa profilu', n_opt_one:'Optimalizace bez roční správy', n_opt_full:'Optimalizace vč. roční správy', n_update:'Úprava firemního profilu', n_car_with:'GSV CAR / HELMA (včetně GSV)', n_car_without:'GSV CAR / HELMA (bez GSV)', n_nfc_card:'NFC Karta / vizitka', n_nfc_stand:'NFC Stojánek', n_nfc_stand_s:'NFC Stojánek malý', n_nfc_plaque_sq:'NFC Plaketa hranatá', n_nfc_plaque_menu:'NFC Plaketa menu', n_nfc_plaque_round:'NFC Plaketa kulatá', n_sticker:'Google samolepka bez NFC',
+        mTitle:'Doplňující informace', mCompany:'Název společnosti', mIco:'IČ', mPerson:'Kontaktní osoba', mPhone:'Telefon', mOnlyQuote:'Generovat pouze cenovou nabídku', mGenerate:'Generovat PDF', mSelectFirst:'Nejprve vyberte alespoň jednu položku.', mGenerating:'Generuji…', mDone:'Hotovo', mPdfErr:'Při generování PDF došlo k chybě. Zkuste to znovu.', mPdfLibs:'PDF knihovny se nenačetly. Zkontrolujte připojení a obnovte stránku.',
+        pdfAudit:'AUDIT PROFILU', pdfSolution:'NÁVRH ŘEŠENÍ', pdfQuote:'CENOVÁ NABÍDKA', pdfIssue:'Datum vystavení', pdfValid:'Platnost nabídky do', pdfSupplier:'Dodavatel', pdfCustomer:'Zákazník', pdfDesc:'Popis', pdfPay:'Typ platby', pdfQty:'Počet', pdfBefore:'Cena před slevou', pdfDisc:'Sleva (%)', pdfAfter:'Cena po slevě', pdfPage:'Strana', pdfScore:'Skóre optimalizace', pdfPreparedFor:'Připraveno pro',
+        refSub:'Ukázky naší práce z databáze klientů', refSearch:'Vyhledat firmu…', refCat:'Kategorie', refAll:'Všechny kategorie', refTotal:'Celkem klientů', refNew:'Noví klienti', refTours:'Zobrazení prohlídek', refNews:'Zobrazení novinek', refRefresh:'Aktualizovat data', refEmpty:'Nic nenalezeno', refEmptyD:'Zkuste upravit filtry.', refErr:'Nebylo možné načíst data', refErrD:'Zkontrolujte připojení k internetu a zkuste to znovu.', refNewBadge:'NOVÝ', refUpdated:'Data byla aktualizována',
+        svc_tour:'Virtuální prohlídka', svc_drone:'Dron', svc_opt:'Optimalizace', svc_manage:'Správa', svc_products:'Produkty', svc_banners:'Příspěvky', svc_app:'Aplikace', svc_nfc:'NFC',
+        R: {
+            claimed:{t:'Ověřte si vlastnictví firemního profilu', w:'Ověřené profily mají podle Googlu <strong>2.7× vyšší šanci</strong>, že je zákazníci budou považovat za důvěryhodné. Bez ověření nelze profil spravovat a hrozí jeho převzetí.', h:'<strong>Zajistíme hladký a rychlý průběh</strong> celého procesu ověření.'},
+            primary:{t:'Zvolte správnou primární kategorii', w:'Primární kategorie je nejsilnější signál pro Google, čemu se věnujete – špatná volba vás ukazuje nesprávným lidem.', h:'Vybereme a nastavíme nejvýkonnější kategorii dle analýzy vašeho oboru a klíčových slov.'},
+            secondary:{t:'Doplňte sekundární kategorie', w:'Každá další správně zvolená kategorie zachytává zákazníky hledající specifické služby z vaší nabídky.', h:'Provedeme rešerši a doplníme všechny relevantní vedlejší kategorie.'},
+            address:{t:'Zkontrolujte a optimalizujte adresu', w:'Přesná adresa a špendlík na mapě jsou klíčové pro funkci Navigovat – chyba znamená ztraceného zákazníka.', h:'Ověříme přesnost adresy i pozice a sjednotíme formát dle standardů Googlu.'},
+            website:{t:'Doplňte webové stránky', w:'Profily s webem získávají o <strong>21–34 % více prokliků</strong> a dotazů a Google je vnímá jako autoritativnější.', h:'Propojíme profil s webem včetně správného měření a konzistence údajů (NAP).'},
+            phone:{t:'Přidejte telefonní číslo', w:'Click-to-Call z mobilu je jedna z nejčastějších konverzí – chybějící číslo znamená ztracené zákazníky.', h:'Doplníme číslo ve správném mezinárodním formátu pro volání jedním klikem.'},
+            hours:{t:'Vyplňte otevírací dobu', w:'Až <strong>40 % lokálních vyhledávání</strong> se týká otevírací doby – bez ní si zákazník vybere konkurenci.', h:'Nastavíme otevírací dobu včetně svátků a můžeme ji za vás trvale spravovat.'},
+            namespam:{t:'Optimalizujte název dle pravidel', w:'Klíčová slova navíc v názvu Google penalizuje a hrozí pozastavení profilu.', h:'Upravíme název dle pravidel a klíčová slova umístíme do popisu, služeb a příspěvků.'},
+            nap:{t:'Sjednoťte firemní údaje (NAP)', w:'Konzistence jména, adresy a telefonu napříč internetem je silný signál důvěryhodnosti; neshody škodí pozici.', h:'Provedeme audit NAP údajů a zajistíme jejich sjednocení.'},
+            ownerphotos:{t:'Přidejte profesionální fotky od majitele', w:'Fotky od majitele (logo, titulní, interiér) mají větší váhu než fotky zákazníků a tvoří první dojem.', h:'Zajistíme profesionální focení a sadu fotografií, které prodávají.'},
+            photos10:{t:'Přidejte více fotografií (10+)', w:'Profily s 10+ fotkami mají o <strong>42 % více žádostí o navigaci</strong> a o <strong>35 % více prokliků</strong> na web.', h:'Vytvoříme profesionální sadu fotografií, která ukáže podnik v nejlepším světle.'},
+            streetview:{t:'Propojte profil se Street View', w:'Aktuální Street View usnadňuje nalezení firmy a zvyšuje důvěryhodnost.', h:'Aktualizujeme snímky před provozovnou a správně je propojíme s profilem.'},
+            vtour:{t:'Vytvořte virtuální prohlídku 360°', w:'Profily s prohlídkou mají dle Googlu <strong>2× vyšší šanci zaujmout</strong> – zákazník si podnik projde z domova.', h:'Jako certifikovaný partner Google vytvoříme profesionální 360° prohlídku.'},
+            drone:{t:'Obohaťte profil o video z dronu', w:'Letecké záběry představí firmu z unikátní perspektivy – ideální pro areály, hotely a restaurace.', h:'Zajistíme natáčení dronem i postprodukci dynamického klipu.'},
+            video:{t:'Přidejte prezentační video', w:'Video předá emoce i informace nejrychleji a udrží pozornost déle než text či foto.', h:'Vytvoříme krátké video optimalizované pro Google profil – od scénáře po střih.'},
+            desc:{t:'Napište poutavý popis firmy', w:'Kvalitní popis umožňuje strategicky umístit klíčová slova pro lokální SEO.', h:'Naši copywriteři napíší čtivý text optimalizovaný pro vyhledávání.'},
+            attrs:{t:'Doplňte atributy', w:'Atributy (bezbariérovost, Wi-Fi, platba kartou…) filtrují výsledky – bez nich se nezobrazíte.', h:'Projdeme a vyplníme všechny dostupné atributy pro vaši kategorii.'},
+            reviews10:{t:'Získejte více než 10 recenzí', w:'<strong>91 % zákazníků</strong> čte recenze a <strong>84 %</strong> jim věří jako osobnímu doporučení; počet ovlivňuje pozici.', h:'Připravíme strategii a nástroje pro systematický a etický sběr recenzí.'},
+            rating42:{t:'Zvyšte hodnocení nad 4.2 ★', w:'Firmy pod 4.0 ★ si vybírá jen minimum zákazníků; i desetiny bodu zvyšují prokliky.', h:'Zaměříme sběr recenzí na spokojené zákazníky a profesionálně vyřešíme ty negativní.'},
+            reply:{t:'Odpovídejte na všechny recenze', w:'Firmy reagující na recenze působí <strong>1.7× důvěryhodněji</strong> a Google aktivitu odměňuje.', h:'Komunikaci převezmeme za vás – rychle a v souladu s vaší firemní kulturou.'},
+            qa:{t:'Využijte sekci Otázky a odpovědi', w:'Proaktivní FAQ šetří personál a dostává do profilu další klíčová slova.', h:'Vytvoříme sadu strategických otázek a odpovědí dle toho, co zákazníci hledají.'},
+            chat:{t:'Aktivujte zprávy (Chat / WhatsApp)', w:'Možnost rychlého dotazu často rozhoduje o výběru firmy a zvyšuje počet poptávek.', h:'Aktivujeme chat a můžeme zajistit i správu příchozích dotazů.'},
+            products:{t:'Doplňte produkty, služby či menu', w:'Nabídka přímo v profilu zkracuje nákupní proces a zvyšuje šanci na okamžitou akci.', h:'Nafotíme a popíšeme klíčové produkty a atraktivně je vložíme do profilu.'},
+            services:{t:'Aktivujte Rezervace / Objednávky', w:'Přímý odkaz na rezervaci zkracuje cestu ke konverzi a zvyšuje interakci.', h:'Propojíme profil s vaším rezervačním systémem, případně pomůžeme s novým.'},
+            posts:{t:'Využívejte Příspěvky', w:'Příspěvky jsou bezplatná reklamní plocha na Googlu a prokazatelně zvyšují CTR.', h:'Vytvoříme redakční plán a budeme pravidelně publikovat atraktivní příspěvky.'},
+            posts14:{t:'Zvyšte frekvenci příspěvků', w:'Aktivita alespoň 1× za 7–14 dní signalizuje živý profil a Google ji odměňuje pozicí.', h:'V rámci správy budeme publikovat pravidelně za vás.'}
+        }
+    },
+    en: {
+        navTool:'Tool', navNew:'New analysis', navWorkflow:'Sales workflow', navAudit:'Profile audit', navComparison:'Competitor comparison', navSolution:'Solution proposal', navPricing:'Price quote', navMore:'Other', navReferences:'References', sideFootT:'View internal tool', sideFootD:'Audit, quote and references for the sales team.', scoreChip:'Score',
+        tWelcome:'View Sales Suite', tAudit:'Profile audit', tComparison:'Competitor comparison', tSolution:'Solution proposal', tPricing:'Price quote', tReferences:'Our clients',
+        wBadge:'Google Business Profile audit', wTitle:'Unlock the full potential of a business profile', wSubtitle:'A deep audit of the Google Maps listing, competitor comparison, solution proposal and price quote – all in one connected workflow.', wSearchPh:'Enter company name and address…',
+        wF1t:'Automated audit', wF1d:'We load public profile data – contacts, reviews, photos and opening hours – and compute a score.', wF2t:'Solution proposal', wF2d:'Audit gaps become concrete steps to skyrocket the client\'s visibility.', wF3t:'Quote in one click', wF3d:'Build a price quote straight from the proposal and generate a client PDF.',
+        loading:'Loading…', missing:'Missing', yes:'Yes', no:'No', auto:'auto', reviews:'reviews',
+        showDays:'Show days', hideDays:'Hide days', showMap:'Show map', hideMap:'Hide map', showSV:'Show Street View', hideSV:'Hide Street View', svMissing:'Street View missing', showReviews:'Show reviews', hideReviews:'Hide reviews',
+        errLoadCompany:'Failed to load company details. Please try again.', errNotFound:'Company not found. Try refining the name and city.',
+        apiAuthFail:'Google rejected the API key. Check key restrictions (HTTP referrers) and that Maps JavaScript API + Places API are enabled for this origin.',
+        apiLoadFail:'Failed to load the Google Maps script. Check your internet connection and script blockers (adblock, firewall).',
+        apiInitFail:'Google Maps failed to initialize. Open the browser console (F12) – Google logs the reason there (usually API key restrictions).', apiKeyPh:'Paste another API key…', apiKeyApply:'Use key & reload', apiKeyTemp:'A temporary API key from the URL is in use. For production, put it directly in the file.',
+        phase1:'Phase 1: Automated audit', phase1sub:'Public data from Google Places', phase2:'Phase 2: Manual audit', phase2sub:'Filled in by the sales rep', scoreTitle:'Optimization score', scoreSub:'Updates with the audit', scoreNote:'The score combines automated data with the manual profile audit.', scoreOverview:'Score breakdown', subScores:'Sub-areas',
+        ssBasic:'Basics', ssInfo:'Information', ssContent:'Content', ssReputation:'Reputation', ssEngagement:'Engagement',
+        catCategories:'Categories', catContact:'Contact information', catRating:'Rating', catContent:'Content', catOther:'Other',
+        lPrimary:'Primary category', lSecondary:'Secondary categories', lAddress:'Address', lWeb:'Website', lPhone:'Phone', lPlus:'Plus Code', lHours:'Opening hours', lGps:'GPS location', lSV:'Street View', lAvg:'Avg. rating', lCount:'Rating count', lLatest:'Latest reviews', lPhotos:'Photo count', lDesc:'Owner description', lPriceLevel:'Price level', lWheelchair:'Wheelchair entrance',
+        vVerified:'Verified listing', vUnverified:'Unverified listing', stVisible:'Visible', stSuspended:'Suspended', stInactive:'Inactive', btnGoogle:'Google', btnMaps:'Maps',
+        warnT:'Critical issue: the profile is not verified', warnD:'Risk of profile takeover, limited management, worse ranking in Search and Maps and lower customer trust.',
+        g_basic:'Profile basics', g_info:'Information, consistency & rules', g_content:'Content quality', g_products:'Products / Services / Bookings', g_posts:'Posts', g_qa:'Questions & Answers (Q&A)', g_inter:'Interaction',
+        c_claimed:'Verified business listing', c_primary:'Primary category', c_secondary:'Secondary categories', c_address:'Address', c_website:'Website', c_phone:'Phone number', c_hours:'Opening hours', c_namespam:'Business name without spam', c_nap:'Consistent data (NAP)', c_ownerphotos:'Owner photos (logo, cover…)', c_photos10:'More than 10 photos', c_streetview:'Profile has Street View', c_vtour:'Virtual tour', c_drone:'Drone', c_video:'Video', c_desc:'Custom business description', c_attrs:'Attributes', c_products:'Products/Services/Menu section', c_services:'Bookings/Orders section', c_posts:'Active posts', c_posts14:'Post activity (< 14 days)', c_qa:'Owner answers questions', c_reply:'Review replies', c_messaging:'Messaging enabled (Chat)', c_whatsapp:'Message button / WhatsApp',
+        rNo:'No', rPart:'Partly', rYes:'Yes', s_rating40:'Rating 4.0 ★ or higher', s_reviews20:'More than 20 reviews', s_replyFull:'Replies to reviews', s_replyPart:'Replies to reviews (partly)', s_replyNone:'Does not reply to reviews',
+        cmpAddPh:'Add another competitor manually…', cmpAdd:'Add', cmpChart:'Deep audit — score', cmpPodium:'Customer ratings', cmpYour:'Your company', cmpRemove:'Remove competitor', cmpMax:'Maximum number of competitors is {n}. Remove one first.', cmpScore:'score',
+        solSub:'The current profile score is {score} %. The following steps will unlock its full potential.', solCongrats:'Congratulations!', solCongratsD:'The profile is in great shape. We found no major issues.', solWhy:'Why it matters', solHow:'How we do it', solRecs:'recommendations', solBuildQuote:'Build price quote',
+        sc_crit:'Critical steps', sc_basic:'Basic information', sc_media:'Content & media', sc_inter:'Customer interaction', sc_adv:'Advanced features',
+        pPackages:'Discounted packages', pIndividual:'Individual services', pGmf:'Google Business Profile', pGmfManage:'Google Business Profile management', pGsv:'Google Street View', pGsvAir:'Google Street View AIR', pExtras:'Additional services', pNfc:'NFC products',
+        pPrice:'PRICE', pSavings:'Savings', pPayType:'Payment type', pSelect:'Select', pYearly:'Yearly', pMonthly:'Monthly', pQuarterly:'Quarterly', pHalf:'Half-yearly',
+        pl_yearly:'yearly payment', pl_monthly:'monthly payment', pl_quarterly:'quarterly payment', pl_half:'half-yearly payment', pl_onetime:'One-time',
+        pSummary:'Quote summary', pRecurring:'Recurring payments', pOnetime:'One-time payments', pTotDiscount:'Total discount', pTotRecurring:'Total recurring', pTotOnetime:'Total one-time', pTotal:'TOTAL (excl. VAT)', pQty:'Qty', pDiscount:'Discount', pGenerate:'Generate quote (PDF)', pIndividualVal:'Individual',
+        pRecoT:'Recommended based on the audit', pRecoD:'Based on the {score} % score we recommend the {pkg} package.', pRecoApply:'Apply recommendation', pTierInfo:'Volume discount: {from} → {to} CZK/pc',
+        f_opt:'Profile optimization', f_manage:'Business profile management', f_news:'Posts / month', f_products:'Product portfolio / month', f_gsv:'Google Street View', f_steps:'Number of steps', f_photo:'Classic photos', f_gsvair:'Google Street View AIR', f_360:'360° photos', f_video:'Video', f_ind:'Individual',
+        n_pkg:'Package', n_manage:'Profile management', n_opt_one:'Optimization without yearly management', n_opt_full:'Optimization incl. yearly management', n_update:'Business profile update', n_car_with:'GSV CAR / HELMET (with GSV)', n_car_without:'GSV CAR / HELMET (without GSV)', n_nfc_card:'NFC Card / business card', n_nfc_stand:'NFC Stand', n_nfc_stand_s:'NFC Stand small', n_nfc_plaque_sq:'NFC Plaque square', n_nfc_plaque_menu:'NFC Plaque menu', n_nfc_plaque_round:'NFC Plaque round', n_sticker:'Google sticker without NFC',
+        mTitle:'Additional information', mCompany:'Company name', mIco:'Company ID', mPerson:'Contact person', mPhone:'Phone', mOnlyQuote:'Generate price quote only', mGenerate:'Generate PDF', mSelectFirst:'Select at least one item first.', mGenerating:'Generating…', mDone:'Done', mPdfErr:'PDF generation failed. Please try again.', mPdfLibs:'PDF libraries did not load. Check your connection and reload the page.',
+        pdfAudit:'PROFILE AUDIT', pdfSolution:'SOLUTION PROPOSAL', pdfQuote:'PRICE QUOTE', pdfIssue:'Issue date', pdfValid:'Valid until', pdfSupplier:'Supplier', pdfCustomer:'Customer', pdfDesc:'Description', pdfPay:'Payment', pdfQty:'Qty', pdfBefore:'Price before discount', pdfDisc:'Discount (%)', pdfAfter:'Price after discount', pdfPage:'Page', pdfScore:'Optimization score', pdfPreparedFor:'Prepared for',
+        refSub:'Examples of our work from the client database', refSearch:'Search company…', refCat:'Category', refAll:'All categories', refTotal:'Total clients', refNew:'New clients', refTours:'Tour views', refNews:'Post views', refRefresh:'Refresh data', refEmpty:'Nothing found', refEmptyD:'Try adjusting the filters.', refErr:'Could not load data', refErrD:'Check your internet connection and try again.', refNewBadge:'NEW', refUpdated:'Data refreshed',
+        svc_tour:'Virtual tour', svc_drone:'Drone', svc_opt:'Optimization', svc_manage:'Management', svc_products:'Products', svc_banners:'Posts', svc_app:'App', svc_nfc:'NFC',
+        R: {
+            claimed:{t:'Verify ownership of the business profile', w:'Verified profiles are <strong>2.7× more likely</strong> to be considered trustworthy. Without verification the profile cannot be managed and can be taken over.', h:'<strong>We handle the whole verification process</strong> quickly and smoothly.'},
+            primary:{t:'Choose the right primary category', w:'The primary category is Google\'s strongest signal about what you do – a wrong choice shows you to the wrong people.', h:'We select and set the best-performing category based on your industry and keywords.'},
+            secondary:{t:'Add secondary categories', w:'Every additional correct category catches customers searching for specific services you offer.', h:'We research and add all relevant secondary categories.'},
+            address:{t:'Check and optimize the address', w:'A precise address and map pin are essential for navigation – an error means a lost customer.', h:'We verify the address and pin position and align the format with Google standards.'},
+            website:{t:'Add a website', w:'Profiles with a website get <strong>21–34 % more clicks</strong> and enquiries and are seen as more authoritative.', h:'We connect the profile to the website incl. proper tracking and NAP consistency.'},
+            phone:{t:'Add a phone number', w:'Click-to-Call from mobile is one of the most common conversions – a missing number means lost customers.', h:'We add the number in the correct international click-to-call format.'},
+            hours:{t:'Fill in opening hours', w:'Up to <strong>40 % of local searches</strong> concern opening hours – without them customers pick a competitor.', h:'We set opening hours incl. holidays and can manage them for you permanently.'},
+            namespam:{t:'Optimize the business name per the rules', w:'Google penalizes extra keywords in the name and may suspend the profile.', h:'We fix the name and place keywords where they belong – description, services, posts.'},
+            nap:{t:'Unify business data (NAP)', w:'Consistent name, address and phone across the web is a strong trust signal; mismatches hurt rankings.', h:'We audit your NAP data across the internet and unify it.'},
+            ownerphotos:{t:'Add professional owner photos', w:'Owner photos (logo, cover, interior) carry more weight than customer photos and form the first impression.', h:'We arrange a professional photoshoot and a set of photos that sell.'},
+            photos10:{t:'Add more photos (10+)', w:'Profiles with 10+ photos get <strong>42 % more direction requests</strong> and <strong>35 % more website clicks</strong>.', h:'We create a professional photo set showing the business at its best.'},
+            streetview:{t:'Connect the profile to Street View', w:'Up-to-date Street View helps customers find the business and boosts trust.', h:'We refresh the imagery around your premises and link it correctly to the profile.'},
+            vtour:{t:'Create a 360° virtual tour', w:'Profiles with a tour are <strong>2× more likely to engage</strong> – customers can walk through from home.', h:'As a certified Google partner we create a professional 360° tour.'},
+            drone:{t:'Enrich the profile with drone video', w:'Aerial footage shows the business from a unique perspective – ideal for hotels, venues and large premises.', h:'We handle drone filming and post-production of a dynamic clip.'},
+            video:{t:'Add a presentation video', w:'Video conveys emotion and information fastest and holds attention longer than text or photos.', h:'We create a short video optimized for the Google profile – from script to final cut.'},
+            desc:{t:'Write an engaging business description', w:'A good description lets us place strategic keywords for local SEO.', h:'Our copywriters write a compelling, search-optimized text.'},
+            attrs:{t:'Fill in attributes', w:'Attributes (accessibility, Wi-Fi, card payments…) filter search results – without them you don\'t show up.', h:'We review and fill in all attributes available for your category.'},
+            reviews10:{t:'Get more than 10 reviews', w:'<strong>91 % of customers</strong> read reviews and <strong>84 %</strong> trust them like personal recommendations; the count affects ranking.', h:'We prepare a strategy and tools for systematic, ethical review collection.'},
+            rating42:{t:'Raise the average rating above 4.2 ★', w:'Few customers choose businesses below 4.0 ★; even tenths of a point increase clicks.', h:'We focus review collection on happy customers and handle negative reviews professionally.'},
+            reply:{t:'Reply to all reviews', w:'Businesses replying to reviews appear <strong>1.7× more trustworthy</strong> and Google rewards the activity.', h:'We take over the communication – fast and in line with your brand voice.'},
+            qa:{t:'Use the Questions & Answers section', w:'Proactive FAQs save staff time and add more keywords to the profile.', h:'We create strategic Q&A based on what your customers actually search for.'},
+            chat:{t:'Enable messaging (Chat / WhatsApp)', w:'A quick-question option often decides which business gets picked and raises enquiries.', h:'We enable chat and can also manage the incoming messages.'},
+            products:{t:'Add products, services or a menu', w:'An offer right in the profile shortens the buying journey and drives immediate action.', h:'We photograph and describe key products and present them attractively in the profile.'},
+            services:{t:'Enable Bookings / Orders', w:'A direct booking link shortens the path to conversion and increases interaction.', h:'We connect the profile to your booking system or help implement a new one.'},
+            posts:{t:'Use Posts', w:'Posts are free ad space right on Google and demonstrably increase CTR.', h:'We build an editorial plan and publish attractive posts regularly.'},
+            posts14:{t:'Increase post frequency', w:'Activity at least once every 7–14 days signals a live profile and Google rewards it.', h:'As part of the management we publish regularly for you.'}
+        }
+    },
+    sk: {
+        navTool:'Nástroj', navNew:'Nová analýza', navWorkflow:'Predajný proces', navAudit:'Audit profilu', navComparison:'Porovnanie konkurencie', navSolution:'Návrh riešenia', navPricing:'Cenová ponuka', navMore:'Ostatné', navReferences:'Referencie', sideFootT:'Interný nástroj View', sideFootD:'Audit, ponuka a referencie pre obchodný tím.', scoreChip:'Skóre',
+        tWelcome:'View Sales Suite', tAudit:'Audit profilu', tComparison:'Porovnanie s konkurenciou', tSolution:'Návrh riešenia', tPricing:'Cenová ponuka', tReferences:'Naši klienti',
+        wBadge:'Audit firemného profilu Google', wTitle:'Odhaľte plný potenciál firemného profilu', wSubtitle:'Hĺbkový audit vizitky na Google Mapách, porovnanie s konkurenciou, návrh riešenia a cenová ponuka – všetko v jednom nadväzujúcom procese.', wSearchPh:'Zadajte názov a adresu firmy…',
+        wF1t:'Automatický audit', wF1d:'Načítame verejné dáta profilu – kontakty, recenzie, fotky aj otváracie hodiny – a vypočítame skóre.', wF2t:'Návrh riešenia', wF2d:'Z nedostatkov auditu zostavíme konkrétne kroky, ako klienta vystreliť nahor.', wF3t:'Ponuka na klik', wF3d:'Z návrhu rovno zostavíte cenovú ponuku a vygenerujete PDF pre klienta.',
+        loading:'Načítavam…', missing:'Chýba', yes:'Áno', no:'Nie', auto:'auto', reviews:'recenzií',
+        showDays:'Zobraziť dni', hideDays:'Skryť dni', showMap:'Zobraziť mapu', hideMap:'Skryť mapu', showSV:'Zobraziť Street View', hideSV:'Skryť Street View', svMissing:'Street View chýba', showReviews:'Zobraziť recenzie', hideReviews:'Skryť recenzie',
+        errLoadCompany:'Nepodarilo sa načítať detaily firmy. Skúste to prosím znova.', errNotFound:'Firmu sa nepodarilo nájsť. Skúste upresniť názov a mesto.',
+        apiAuthFail:'Google odmietol API kľúč. Skontrolujte v Google Cloud Console obmedzenia kľúča (HTTP referrery) a povolenie Maps JavaScript API + Places API pre túto adresu.',
+        apiLoadFail:'Nepodarilo sa načítať Google Maps skript. Skontrolujte pripojenie a blokovanie skriptov (adblock, firewall).',
+        apiInitFail:'Google Maps sa nepodarilo inicializovať. Otvorte konzolu prehliadača (F12) – Google tam vypisuje dôvod (najčastejšie obmedzenia API kľúča).', apiKeyPh:'Vložiť iný API kľúč…', apiKeyApply:'Použiť kľúč a znova načítať', apiKeyTemp:'Používa sa dočasný API kľúč z adresy. Pre trvalé nasadenie ho vložte priamo do súboru.',
+        phase1:'Fáza 1: Automatický audit', phase1sub:'Verejné dáta z Google Places', phase2:'Fáza 2: Manuálny audit', phase2sub:'Doplní obchodník pri kontrole profilu', scoreTitle:'Skóre optimalizácie', scoreSub:'Aktualizuje sa podľa auditu', scoreNote:'Skóre vychádza z automatických dát a manuálneho auditu profilu.', scoreOverview:'Prehľad hodnotenia', subScores:'Čiastkové oblasti',
+        ssBasic:'Základ', ssInfo:'Informácie', ssContent:'Obsah', ssReputation:'Reputácia', ssEngagement:'Aktivita',
+        catCategories:'Kategórie', catContact:'Kontaktné informácie', catRating:'Hodnotenie', catContent:'Obsah', catOther:'Ostatné',
+        lPrimary:'Primárna kategória', lSecondary:'Sekundárne kategórie', lAddress:'Adresa', lWeb:'Web', lPhone:'Telefón', lPlus:'Plus Code', lHours:'Otváracie hodiny', lGps:'GPS lokalita', lSV:'Street View', lAvg:'Priem. hodnotenie', lCount:'Počet hodnotení', lLatest:'Najnovšie recenzie', lPhotos:'Počet fotiek', lDesc:'Popis od vlastníka', lPriceLevel:'Cenová úroveň', lWheelchair:'Bezbariérový vchod',
+        vVerified:'Overený zápis', vUnverified:'Neoverený zápis', stVisible:'Viditeľné', stSuspended:'Pozastavené', stInactive:'Neaktívne', btnGoogle:'Google', btnMaps:'Mapy',
+        warnT:'Kritický nedostatok: profil nie je overený', warnD:'Hrozí prevzatie profilu, obmedzená správa, horšia pozícia vo vyhľadávaní aj mapách a nižšia dôveryhodnosť u zákazníkov.',
+        g_basic:'Základný stav profilu', g_info:'Informácie, konzistencia a pravidlá', g_content:'Kvalita obsahu', g_products:'Produkty / Služby / Rezervácie', g_posts:'Reklamné novinky', g_qa:'Otázky a odpovede (Q&A)', g_inter:'Interakcie',
+        c_claimed:'Overený firemný zápis', c_primary:'Primárna kategória', c_secondary:'Sekundárne kategórie', c_address:'Adresa', c_website:'Webové stránky', c_phone:'Telefónne číslo', c_hours:'Otváracie hodiny', c_namespam:'Názov firmy neobsahuje spam', c_nap:'Údaje (NAP) sú zhodné', c_ownerphotos:'Fotky od majiteľa (logo, titulná…)', c_photos10:'Viac ako 10 fotografií', c_streetview:'Profil obsahuje Street View', c_vtour:'Virtuálna prehliadka', c_drone:'Dron', c_video:'Video', c_desc:'Vlastný popis firmy', c_attrs:'Atribúty', c_products:'Sekcia Produkty/Služby/Menu', c_services:'Sekcia Rezervácie/Objednávky', c_posts:'Aktívne príspevky', c_posts14:'Aktivita príspevkov (< 14 dní)', c_qa:'Majiteľ odpovedá na otázky', c_reply:'Reakcie na recenzie', c_messaging:'Aktívne zasielanie správ (Chat)', c_whatsapp:'Tlačidlo správ / WhatsApp',
+        rNo:'Nie', rPart:'Čiastočne', rYes:'Áno', s_rating40:'Hodnotenie 4.0 ★ a viac', s_reviews20:'Viac ako 20 recenzií', s_replyFull:'Reaguje na recenzie', s_replyPart:'Reaguje na recenzie (čiastočne)', s_replyNone:'Nereaguje na recenzie',
+        cmpAddPh:'Pridať ďalšieho konkurenta ručne…', cmpAdd:'Pridať', cmpChart:'Hĺbkový audit — skóre', cmpPodium:'Hodnotenie zákazníkov', cmpYour:'Vaša firma', cmpRemove:'Odobrať konkurenta', cmpMax:'Maximálny počet konkurentov je {n}. Najprv niektorého odoberte.', cmpScore:'skóre',
+        solSub:'Aktuálne skóre profilu je {score} %. Nasledujúce kroky pomôžu dosiahnuť 100% potenciál.', solCongrats:'Gratulujeme!', solCongratsD:'Profil je vo skvelej kondícii. Nenašli sme žiadne zásadné nedostatky.', solWhy:'Prečo je to dôležité?', solHow:'Ako na to?', solRecs:'odporúčaní', solBuildQuote:'Zostaviť cenovú ponuku',
+        sc_crit:'Kritické kroky', sc_basic:'Základné informácie', sc_media:'Obsah a médiá', sc_inter:'Interakcia so zákazníkmi', sc_adv:'Pokročilé funkcie',
+        pPackages:'Zvýhodnené balíčky', pIndividual:'Jednotlivé služby', pGmf:'Google Moja Firma', pGmfManage:'Správa Google Moja Firma', pGsv:'Google Street View', pGsvAir:'Google Street View AIR', pExtras:'Doplnkové služby', pNfc:'NFC Produkty',
+        pPrice:'CENA', pSavings:'Úspora', pPayType:'Typ platby', pSelect:'Vybrať', pYearly:'Ročná', pMonthly:'Mesačná', pQuarterly:'Kvartálna', pHalf:'Polročná',
+        pl_yearly:'ročná platba', pl_monthly:'mesačná platba', pl_quarterly:'kvartálna platba', pl_half:'polročná platba', pl_onetime:'Jednorazová',
+        pSummary:'Rekapitulácia ponuky', pRecurring:'Paušálne platby', pOnetime:'Jednorazové platby', pTotDiscount:'Celková zľava', pTotRecurring:'Spolu paušálne platby', pTotOnetime:'Spolu jednorazové platby', pTotal:'SPOLU (bez DPH)', pQty:'Počet', pDiscount:'Zľava', pGenerate:'Generovať ponuku (PDF)', pIndividualVal:'Individuálne',
+        pRecoT:'Odporúčané na základe auditu', pRecoD:'Podľa skóre {score} % odporúčame balíček {pkg}.', pRecoApply:'Použiť odporúčanie', pTierInfo:'Množstevná zľava: {from} → {to} Kč/ks',
+        f_opt:'Optimalizácia profilu', f_manage:'Správa firemného profilu', f_news:'Novinky / mesiac', f_products:'Produktové portfólio / mesiac', f_gsv:'Google Street View', f_steps:'Počet krokov', f_photo:'Klasické foto', f_gsvair:'Google Street View AIR', f_360:'360° foto', f_video:'Video', f_ind:'Individuálne',
+        n_pkg:'Balíček', n_manage:'Správa profilu', n_opt_one:'Optimalizácia bez ročnej správy', n_opt_full:'Optimalizácia vrát. ročnej správy', n_update:'Úprava firemného profilu', n_car_with:'GSV CAR / HELMA (vrátane GSV)', n_car_without:'GSV CAR / HELMA (bez GSV)', n_nfc_card:'NFC Karta / vizitka', n_nfc_stand:'NFC Stojanček', n_nfc_stand_s:'NFC Stojanček malý', n_nfc_plaque_sq:'NFC Plaketa hranatá', n_nfc_plaque_menu:'NFC Plaketa menu', n_nfc_plaque_round:'NFC Plaketa guľatá', n_sticker:'Google nálepka bez NFC',
+        mTitle:'Doplňujúce informácie', mCompany:'Názov spoločnosti', mIco:'IČO', mPerson:'Kontaktná osoba', mPhone:'Telefón', mOnlyQuote:'Generovať iba cenovú ponuku', mGenerate:'Generovať PDF', mSelectFirst:'Najprv vyberte aspoň jednu položku.', mGenerating:'Generujem…', mDone:'Hotovo', mPdfErr:'Pri generovaní PDF došlo k chybe. Skúste to znova.', mPdfLibs:'PDF knižnice sa nenačítali. Skontrolujte pripojenie a obnovte stránku.',
+        pdfAudit:'AUDIT PROFILU', pdfSolution:'NÁVRH RIEŠENIA', pdfQuote:'CENOVÁ PONUKA', pdfIssue:'Dátum vystavenia', pdfValid:'Platnosť ponuky do', pdfSupplier:'Dodávateľ', pdfCustomer:'Zákazník', pdfDesc:'Popis', pdfPay:'Typ platby', pdfQty:'Počet', pdfBefore:'Cena pred zľavou', pdfDisc:'Zľava (%)', pdfAfter:'Cena po zľave', pdfPage:'Strana', pdfScore:'Skóre optimalizácie', pdfPreparedFor:'Pripravené pre',
+        refSub:'Ukážky našej práce z databázy klientov', refSearch:'Vyhľadať firmu…', refCat:'Kategória', refAll:'Všetky kategórie', refTotal:'Spolu klientov', refNew:'Noví klienti', refTours:'Zobrazenia prehliadok', refNews:'Zobrazenia noviniek', refRefresh:'Aktualizovať dáta', refEmpty:'Nič sa nenašlo', refEmptyD:'Skúste upraviť filtre.', refErr:'Dáta sa nepodarilo načítať', refErrD:'Skontrolujte pripojenie a skúste to znova.', refNewBadge:'NOVÝ', refUpdated:'Dáta boli aktualizované',
+        svc_tour:'Virtuálna prehliadka', svc_drone:'Dron', svc_opt:'Optimalizácia', svc_manage:'Správa', svc_products:'Produkty', svc_banners:'Príspevky', svc_app:'Aplikácia', svc_nfc:'NFC',
+        R: {
+            claimed:{t:'Overte si vlastníctvo firemného profilu', w:'Overené profily majú podľa Googlu <strong>2.7× vyššiu šancu</strong>, že ich zákazníci budú považovať za dôveryhodné. Bez overenia nemožno profil spravovať a hrozí jeho prevzatie.', h:'<strong>Zaistíme hladký a rýchly priebeh</strong> celého procesu overenia.'},
+            primary:{t:'Zvoľte správnu primárnu kategóriu', w:'Primárna kategória je najsilnejší signál pre Google, čomu sa venujete – zlá voľba vás ukazuje nesprávnym ľuďom.', h:'Vyberieme a nastavíme najvýkonnejšiu kategóriu podľa analýzy vášho odboru a kľúčových slov.'},
+            secondary:{t:'Doplňte sekundárne kategórie', w:'Každá ďalšia správna kategória zachytáva zákazníkov hľadajúcich špecifické služby z vašej ponuky.', h:'Vykonáme rešerš a doplníme všetky relevantné vedľajšie kategórie.'},
+            address:{t:'Skontrolujte a optimalizujte adresu', w:'Presná adresa a špendlík na mape sú kľúčové pre navigáciu – chyba znamená strateného zákazníka.', h:'Overíme presnosť adresy aj pozície a zjednotíme formát podľa štandardov Googlu.'},
+            website:{t:'Doplňte webové stránky', w:'Profily s webom získavajú o <strong>21–34 % viac preklikov</strong> a dopytov a Google ich vníma ako autoritatívnejšie.', h:'Prepojíme profil s webom vrátane správneho merania a konzistencie údajov (NAP).'},
+            phone:{t:'Pridajte telefónne číslo', w:'Click-to-Call z mobilu je jedna z najčastejších konverzií – chýbajúce číslo znamená stratených zákazníkov.', h:'Doplníme číslo v správnom medzinárodnom formáte pre volanie jedným klikom.'},
+            hours:{t:'Vyplňte otváracie hodiny', w:'Až <strong>40 % lokálnych vyhľadávaní</strong> sa týka otváracích hodín – bez nich si zákazník vyberie konkurenciu.', h:'Nastavíme otváracie hodiny vrátane sviatkov a môžeme ich za vás trvalo spravovať.'},
+            namespam:{t:'Optimalizujte názov podľa pravidiel', w:'Kľúčové slová navyše v názve Google penalizuje a hrozí pozastavenie profilu.', h:'Upravíme názov podľa pravidiel a kľúčové slová umiestnime do popisu, služieb a príspevkov.'},
+            nap:{t:'Zjednoťte firemné údaje (NAP)', w:'Konzistencia mena, adresy a telefónu naprieč internetom je silný signál dôveryhodnosti; nezhody škodia pozícii.', h:'Vykonáme audit NAP údajov a zaistíme ich zjednotenie.'},
+            ownerphotos:{t:'Pridajte profesionálne fotky od majiteľa', w:'Fotky od majiteľa (logo, titulná, interiér) majú väčšiu váhu ako fotky zákazníkov a tvoria prvý dojem.', h:'Zaistíme profesionálne fotenie a sadu fotografií, ktoré predávajú.'},
+            photos10:{t:'Pridajte viac fotografií (10+)', w:'Profily s 10+ fotkami majú o <strong>42 % viac žiadostí o navigáciu</strong> a o <strong>35 % viac preklikov</strong> na web.', h:'Vytvoríme profesionálnu sadu fotografií, ktorá ukáže podnik v najlepšom svetle.'},
+            streetview:{t:'Prepojte profil so Street View', w:'Aktuálne Street View uľahčuje nájdenie firmy a zvyšuje dôveryhodnosť.', h:'Aktualizujeme snímky pred prevádzkou a správne ich prepojíme s profilom.'},
+            vtour:{t:'Vytvorte virtuálnu prehliadku 360°', w:'Profily s prehliadkou majú podľa Googlu <strong>2× vyššiu šancu zaujať</strong> – zákazník si podnik prejde z domova.', h:'Ako certifikovaný partner Google vytvoríme profesionálnu 360° prehliadku.'},
+            drone:{t:'Obohaťte profil o video z dronu', w:'Letecké zábery predstavia firmu z unikátnej perspektívy – ideálne pre areály, hotely a reštaurácie.', h:'Zaistíme natáčanie dronom aj postprodukciu dynamického klipu.'},
+            video:{t:'Pridajte prezentačné video', w:'Video odovzdá emócie aj informácie najrýchlejšie a udrží pozornosť dlhšie ako text či foto.', h:'Vytvoríme krátke video optimalizované pre Google profil – od scenára po strih.'},
+            desc:{t:'Napíšte pútavý popis firmy', w:'Kvalitný popis umožňuje strategicky umiestniť kľúčové slová pre lokálne SEO.', h:'Naši copywriteri napíšu čitateľný text optimalizovaný pre vyhľadávanie.'},
+            attrs:{t:'Doplňte atribúty', w:'Atribúty (bezbariérovosť, Wi-Fi, platba kartou…) filtrujú výsledky – bez nich sa nezobrazíte.', h:'Prejdeme a vyplníme všetky dostupné atribúty pre vašu kategóriu.'},
+            reviews10:{t:'Získajte viac ako 10 recenzií', w:'<strong>91 % zákazníkov</strong> číta recenzie a <strong>84 %</strong> im verí ako osobnému odporúčaniu; počet ovplyvňuje pozíciu.', h:'Pripravíme stratégiu a nástroje pre systematický a etický zber recenzií.'},
+            rating42:{t:'Zvýšte hodnotenie nad 4.2 ★', w:'Firmy pod 4.0 ★ si vyberá len minimum zákazníkov; aj desatiny bodu zvyšujú prekliky.', h:'Zameriame zber recenzií na spokojných zákazníkov a profesionálne vyriešime tie negatívne.'},
+            reply:{t:'Odpovedajte na všetky recenzie', w:'Firmy reagujúce na recenzie pôsobia <strong>1.7× dôveryhodnejšie</strong> a Google aktivitu odmeňuje.', h:'Komunikáciu prevezmeme za vás – rýchlo a v súlade s vašou firemnou kultúrou.'},
+            qa:{t:'Využite sekciu Otázky a odpovede', w:'Proaktívne FAQ šetrí personál a dostáva do profilu ďalšie kľúčové slová.', h:'Vytvoríme sadu strategických otázok a odpovedí podľa toho, čo zákazníci hľadajú.'},
+            chat:{t:'Aktivujte správy (Chat / WhatsApp)', w:'Možnosť rýchlej otázky často rozhoduje o výbere firmy a zvyšuje počet dopytov.', h:'Aktivujeme chat a môžeme zaistiť aj správu prichádzajúcich otázok.'},
+            products:{t:'Doplňte produkty, služby či menu', w:'Ponuka priamo v profile skracuje nákupný proces a zvyšuje šancu na okamžitú akciu.', h:'Nafotíme a popíšeme kľúčové produkty a atraktívne ich vložíme do profilu.'},
+            services:{t:'Aktivujte Rezervácie / Objednávky', w:'Priamy odkaz na rezerváciu skracuje cestu ku konverzii a zvyšuje interakciu.', h:'Prepojíme profil s vaším rezervačným systémom, prípadne pomôžeme s novým.'},
+            posts:{t:'Využívajte Príspevky', w:'Príspevky sú bezplatná reklamná plocha na Googli a preukázateľne zvyšujú CTR.', h:'Vytvoríme redakčný plán a budeme pravidelne publikovať atraktívne príspevky.'},
+            posts14:{t:'Zvýšte frekvenciu príspevkov', w:'Aktivita aspoň 1× za 7–14 dní signalizuje živý profil a Google ju odmeňuje pozíciou.', h:'V rámci správy budeme publikovať pravidelne za vás.'}
+        }
+    },
+    hu: {
+        navTool:'Eszköz', navNew:'Új elemzés', navWorkflow:'Értékesítési folyamat', navAudit:'Profil audit', navComparison:'Versenytárs-összehasonlítás', navSolution:'Megoldási javaslat', navPricing:'Árajánlat', navMore:'Egyéb', navReferences:'Referenciák', sideFootT:'View belső eszköz', sideFootD:'Audit, ajánlat és referenciák az értékesítési csapatnak.', scoreChip:'Pontszám',
+        tWelcome:'View Sales Suite', tAudit:'Profil audit', tComparison:'Versenytárs-összehasonlítás', tSolution:'Megoldási javaslat', tPricing:'Árajánlat', tReferences:'Ügyfeleink',
+        wBadge:'Google cégprofil audit', wTitle:'Tárja fel a cégprofil teljes potenciálját', wSubtitle:'A Google Térkép-adatlap mélyreható auditja, versenytárs-összehasonlítás, megoldási javaslat és árajánlat – egyetlen összefüggő folyamatban.', wSearchPh:'Adja meg a cég nevét és címét…',
+        wF1t:'Automatikus audit', wF1d:'Betöltjük a profil nyilvános adatait – elérhetőségek, értékelések, fotók, nyitvatartás – és pontszámot számolunk.', wF2t:'Megoldási javaslat', wF2d:'Az audit hiányosságaiból konkrét lépéseket állítunk össze az ügyfél felfuttatásához.', wF3t:'Ajánlat egy kattintással', wF3d:'A javaslatból azonnal árajánlatot állíthat össze és PDF-et generálhat az ügyfélnek.',
+        loading:'Betöltés…', missing:'Hiányzik', yes:'Igen', no:'Nem', auto:'auto', reviews:'értékelés',
+        showDays:'Napok megjelenítése', hideDays:'Napok elrejtése', showMap:'Térkép megjelenítése', hideMap:'Térkép elrejtése', showSV:'Street View megjelenítése', hideSV:'Street View elrejtése', svMissing:'Street View hiányzik', showReviews:'Értékelések megjelenítése', hideReviews:'Értékelések elrejtése',
+        errLoadCompany:'Nem sikerült betölteni a cég adatait. Kérjük, próbálja újra.', errNotFound:'A cég nem található. Pontosítsa a nevet és a várost.',
+        apiAuthFail:'A Google elutasította az API-kulcsot. Ellenőrizze a kulcs korlátozásait (HTTP referrer) és a Maps JavaScript API + Places API engedélyezését ehhez a címhez.',
+        apiLoadFail:'Nem sikerült betölteni a Google Maps szkriptet. Ellenőrizze az internetkapcsolatot és a szkriptblokkolókat.',
+        apiInitFail:'A Google Maps inicializálása nem sikerült. Nyissa meg a böngészőkonzolt (F12) – a Google ott jelzi az okot (leggyakrabban API-kulcs korlátozás).', apiKeyPh:'Másik API-kulcs beillesztése…', apiKeyApply:'Kulcs használata és újratöltés', apiKeyTemp:'Ideiglenes API-kulcs van használatban az URL-ből. Éles használathoz illessze be közvetlenül a fájlba.',
+        phase1:'1. fázis: Automatikus audit', phase1sub:'Nyilvános adatok a Google Places-ből', phase2:'2. fázis: Manuális audit', phase2sub:'Az értékesítő tölti ki az ellenőrzéskor', scoreTitle:'Optimalizálási pontszám', scoreSub:'Az audit alapján frissül', scoreNote:'A pontszám az automatikus adatokból és a manuális auditból áll össze.', scoreOverview:'Értékelés áttekintése', subScores:'Részterületek',
+        ssBasic:'Alapok', ssInfo:'Információk', ssContent:'Tartalom', ssReputation:'Hírnév', ssEngagement:'Aktivitás',
+        catCategories:'Kategóriák', catContact:'Elérhetőségek', catRating:'Értékelés', catContent:'Tartalom', catOther:'Egyéb',
+        lPrimary:'Elsődleges kategória', lSecondary:'Másodlagos kategóriák', lAddress:'Cím', lWeb:'Weboldal', lPhone:'Telefon', lPlus:'Plus Code', lHours:'Nyitvatartás', lGps:'GPS helyzet', lSV:'Street View', lAvg:'Átl. értékelés', lCount:'Értékelések száma', lLatest:'Legújabb értékelések', lPhotos:'Fotók száma', lDesc:'Tulajdonosi leírás', lPriceLevel:'Árszint', lWheelchair:'Akadálymentes bejárat',
+        vVerified:'Igazolt adatlap', vUnverified:'Nem igazolt adatlap', stVisible:'Látható', stSuspended:'Felfüggesztve', stInactive:'Inaktív', btnGoogle:'Google', btnMaps:'Térkép',
+        warnT:'Kritikus hiányosság: a profil nincs igazolva', warnD:'Fennáll a profil átvételének kockázata, korlátozott a kezelés, rosszabb a pozíció a keresésben és a térképen, alacsonyabb az ügyfélbizalom.',
+        g_basic:'A profil alapállapota', g_info:'Információk, konzisztencia és szabályok', g_content:'Tartalom minősége', g_products:'Termékek / Szolgáltatások / Foglalások', g_posts:'Bejegyzések', g_qa:'Kérdések és válaszok (Q&A)', g_inter:'Interakciók',
+        c_claimed:'Igazolt cégadatlap', c_primary:'Elsődleges kategória', c_secondary:'Másodlagos kategóriák', c_address:'Cím', c_website:'Weboldal', c_phone:'Telefonszám', c_hours:'Nyitvatartás', c_namespam:'A cégnév nem tartalmaz spamet', c_nap:'Egységes adatok (NAP)', c_ownerphotos:'Tulajdonosi fotók (logó, borító…)', c_photos10:'Több mint 10 fotó', c_streetview:'A profilhoz tartozik Street View', c_vtour:'Virtuális túra', c_drone:'Drón', c_video:'Videó', c_desc:'Egyedi cégleírás', c_attrs:'Attribútumok', c_products:'Termékek/Szolgáltatások/Menü szekció', c_services:'Foglalás/Rendelés szekció', c_posts:'Aktív bejegyzések', c_posts14:'Bejegyzés-aktivitás (< 14 nap)', c_qa:'A tulajdonos válaszol a kérdésekre', c_reply:'Válaszok az értékelésekre', c_messaging:'Üzenetküldés aktív (Chat)', c_whatsapp:'Üzenet gomb / WhatsApp',
+        rNo:'Nem', rPart:'Részben', rYes:'Igen', s_rating40:'4.0 ★ vagy magasabb értékelés', s_reviews20:'Több mint 20 értékelés', s_replyFull:'Válaszol az értékelésekre', s_replyPart:'Válaszol az értékelésekre (részben)', s_replyNone:'Nem válaszol az értékelésekre',
+        cmpAddPh:'További versenytárs hozzáadása kézzel…', cmpAdd:'Hozzáadás', cmpChart:'Mélyaudit — pontszám', cmpPodium:'Ügyfélértékelések', cmpYour:'Az Ön cége', cmpRemove:'Versenytárs eltávolítása', cmpMax:'A versenytársak maximális száma {n}. Először távolítson el egyet.', cmpScore:'pontszám',
+        solSub:'A profil jelenlegi pontszáma {score} %. A következő lépések segítenek elérni a 100%-os potenciált.', solCongrats:'Gratulálunk!', solCongratsD:'A profil kiváló állapotban van. Nem találtunk lényeges hiányosságot.', solWhy:'Miért fontos?', solHow:'Hogyan oldjuk meg?', solRecs:'javaslat', solBuildQuote:'Árajánlat összeállítása',
+        sc_crit:'Kritikus lépések', sc_basic:'Alapinformációk', sc_media:'Tartalom és média', sc_inter:'Ügyfél-interakció', sc_adv:'Haladó funkciók',
+        pPackages:'Kedvezményes csomagok', pIndividual:'Egyedi szolgáltatások', pGmf:'Google Cégem', pGmfManage:'Google Cégem kezelés', pGsv:'Google Street View', pGsvAir:'Google Street View AIR', pExtras:'Kiegészítő szolgáltatások', pNfc:'NFC termékek',
+        pPrice:'ÁR', pSavings:'Megtakarítás', pPayType:'Fizetés típusa', pSelect:'Kiválaszt', pYearly:'Éves', pMonthly:'Havi', pQuarterly:'Negyedéves', pHalf:'Féléves',
+        pl_yearly:'éves fizetés', pl_monthly:'havi fizetés', pl_quarterly:'negyedéves fizetés', pl_half:'féléves fizetés', pl_onetime:'Egyszeri',
+        pSummary:'Ajánlat összefoglaló', pRecurring:'Rendszeres díjak', pOnetime:'Egyszeri díjak', pTotDiscount:'Teljes kedvezmény', pTotRecurring:'Rendszeres díjak összesen', pTotOnetime:'Egyszeri díjak összesen', pTotal:'ÖSSZESEN (ÁFA nélkül)', pQty:'Db', pDiscount:'Kedvezmény', pGenerate:'Ajánlat generálása (PDF)', pIndividualVal:'Egyedi',
+        pRecoT:'Az audit alapján ajánlott', pRecoD:'A {score} %-os pontszám alapján a {pkg} csomagot ajánljuk.', pRecoApply:'Ajánlás alkalmazása', pTierInfo:'Mennyiségi kedvezmény: {from} → {to} Kč/db',
+        f_opt:'Profil optimalizálás', f_manage:'Cégprofil kezelés', f_news:'Bejegyzés / hó', f_products:'Termékportfólió / hó', f_gsv:'Google Street View', f_steps:'Lépések száma', f_photo:'Klasszikus fotó', f_gsvair:'Google Street View AIR', f_360:'360° fotó', f_video:'Videó', f_ind:'Egyedi',
+        n_pkg:'Csomag', n_manage:'Profilkezelés', n_opt_one:'Optimalizálás éves kezelés nélkül', n_opt_full:'Optimalizálás éves kezeléssel', n_update:'Cégprofil frissítése', n_car_with:'GSV CAR / SISAK (GSV-vel)', n_car_without:'GSV CAR / SISAK (GSV nélkül)', n_nfc_card:'NFC kártya / névjegy', n_nfc_stand:'NFC állvány', n_nfc_stand_s:'NFC állvány kicsi', n_nfc_plaque_sq:'NFC plakett szögletes', n_nfc_plaque_menu:'NFC plakett menü', n_nfc_plaque_round:'NFC plakett kerek', n_sticker:'Google matrica NFC nélkül',
+        mTitle:'Kiegészítő adatok', mCompany:'Cégnév', mIco:'Adószám / cégjegyzékszám', mPerson:'Kapcsolattartó', mPhone:'Telefon', mOnlyQuote:'Csak árajánlat generálása', mGenerate:'PDF generálása', mSelectFirst:'Először válasszon ki legalább egy tételt.', mGenerating:'Generálás…', mDone:'Kész', mPdfErr:'Hiba történt a PDF generálásakor. Próbálja újra.', mPdfLibs:'A PDF-könyvtárak nem töltődtek be. Ellenőrizze a kapcsolatot és frissítse az oldalt.',
+        pdfAudit:'PROFIL AUDIT', pdfSolution:'MEGOLDÁSI JAVASLAT', pdfQuote:'ÁRAJÁNLAT', pdfIssue:'Kiállítás dátuma', pdfValid:'Érvényes eddig', pdfSupplier:'Szállító', pdfCustomer:'Ügyfél', pdfDesc:'Leírás', pdfPay:'Fizetés', pdfQty:'Db', pdfBefore:'Ár kedvezmény előtt', pdfDisc:'Kedvezmény (%)', pdfAfter:'Ár kedvezmény után', pdfPage:'Oldal', pdfScore:'Optimalizálási pontszám', pdfPreparedFor:'Készült',
+        refSub:'Munkáink az ügyfél-adatbázisunkból', refSearch:'Cég keresése…', refCat:'Kategória', refAll:'Minden kategória', refTotal:'Összes ügyfél', refNew:'Új ügyfelek', refTours:'Túra megtekintések', refNews:'Bejegyzés megtekintések', refRefresh:'Adatok frissítése', refEmpty:'Nincs találat', refEmptyD:'Próbálja módosítani a szűrőket.', refErr:'Az adatok betöltése nem sikerült', refErrD:'Ellenőrizze az internetkapcsolatot és próbálja újra.', refNewBadge:'ÚJ', refUpdated:'Az adatok frissültek',
+        svc_tour:'Virtuális túra', svc_drone:'Drón', svc_opt:'Optimalizálás', svc_manage:'Kezelés', svc_products:'Termékek', svc_banners:'Bejegyzések', svc_app:'Alkalmazás', svc_nfc:'NFC',
+        R: {
+            claimed:{t:'Igazolja a cégprofil tulajdonjogát', w:'Az igazolt profilokat a Google szerint <strong>2,7× nagyobb eséllyel</strong> tartják megbízhatónak. Igazolás nélkül a profil nem kezelhető, és fennáll az átvétel kockázata.', h:'<strong>Gyorsan és gördülékenyen levezényeljük</strong> a teljes igazolási folyamatot.'},
+            primary:{t:'Válassza ki a megfelelő elsődleges kategóriát', w:'Az elsődleges kategória a legerősebb jelzés a Google felé – rossz választásnál nem a megfelelő embereknek jelenik meg.', h:'Az iparág és a kulcsszavak elemzése alapján beállítjuk a legjobban teljesítő kategóriát.'},
+            secondary:{t:'Adjon hozzá másodlagos kategóriákat', w:'Minden további helyes kategória újabb, konkrét szolgáltatást kereső ügyfeleket ér el.', h:'Felkutatjuk és hozzáadjuk az összes releváns másodlagos kategóriát.'},
+            address:{t:'Ellenőrizze és optimalizálja a címet', w:'A pontos cím és térképjelölő kulcsfontosságú a navigációhoz – a hiba elveszett ügyfelet jelent.', h:'Ellenőrizzük a cím és a pozíció pontosságát, és a Google szabványaihoz igazítjuk.'},
+            website:{t:'Adja meg a weboldalt', w:'A weboldallal rendelkező profilok <strong>21–34%-kal több kattintást</strong> és megkeresést kapnak.', h:'Összekapcsoljuk a profilt a weboldallal, helyes méréssel és egységes adatokkal (NAP).'},
+            phone:{t:'Adjon meg telefonszámot', w:'A mobilról indított hívás az egyik leggyakoribb konverzió – hiányzó szám elveszett ügyfeleket jelent.', h:'Nemzetközi formátumban adjuk meg a számot az egykattintásos híváshoz.'},
+            hours:{t:'Töltse ki a nyitvatartást', w:'A helyi keresések akár <strong>40%-a</strong> a nyitvatartásra vonatkozik – enélkül az ügyfél a versenytársat választja.', h:'Beállítjuk a nyitvatartást az ünnepekkel együtt, és tartósan kezelhetjük is.'},
+            namespam:{t:'Optimalizálja a cégnevet a szabályok szerint', w:'A névbe tett plusz kulcsszavakat a Google bünteti, akár a profil felfüggesztésével.', h:'A nevet szabálykövetővé tesszük, a kulcsszavakat a leírásba és a bejegyzésekbe helyezzük.'},
+            nap:{t:'Egységesítse a cégadatokat (NAP)', w:'A név, cím és telefon internetes konzisztenciája erős bizalmi jel; az eltérések rontják a pozíciót.', h:'Auditáljuk a NAP-adatokat az interneten és egységesítjük őket.'},
+            ownerphotos:{t:'Adjon hozzá professzionális tulajdonosi fotókat', w:'A tulajdonosi fotók (logó, borító, belső tér) nagyobb súllyal esnek latba, és ezek adják az első benyomást.', h:'Professzionális fotózást és eladást segítő fotósorozatot biztosítunk.'},
+            photos10:{t:'Adjon hozzá több fotót (10+)', w:'A 10+ fotós profilok <strong>42%-kal több útvonaltervezést</strong> és <strong>35%-kal több kattintást</strong> kapnak.', h:'Professzionális fotósorozatot készítünk, amely a legjobb fényben mutatja a vállalkozást.'},
+            streetview:{t:'Kapcsolja össze a profilt a Street View-val', w:'A naprakész Street View segíti az ügyfeleket a cég megtalálásában és növeli a bizalmat.', h:'Frissítjük a felvételeket az üzlet előtt és helyesen összekapcsoljuk a profillal.'},
+            vtour:{t:'Készítsen 360°-os virtuális túrát', w:'A túrával rendelkező profilok a Google szerint <strong>2× nagyobb eséllyel</strong> keltik fel az érdeklődést.', h:'A Google minősített partnereként professzionális 360°-os túrát készítünk.'},
+            drone:{t:'Gazdagítsa a profilt drónvideóval', w:'A légi felvételek egyedi perspektívából mutatják be a céget – ideális szállodáknak, éttermeknek, telephelyeknek.', h:'Elkészítjük a drónfelvételeket és a dinamikus klip utómunkáját.'},
+            video:{t:'Adjon hozzá bemutatkozó videót', w:'A videó adja át leggyorsabban az érzelmeket és információkat, tovább tartja fenn a figyelmet.', h:'Rövid, a Google-profilra optimalizált videót készítünk – a forgatókönyvtől a vágásig.'},
+            desc:{t:'Írjon vonzó cégleírást', w:'A minőségi leírás lehetővé teszi a helyi SEO-kulcsszavak stratégiai elhelyezését.', h:'Szövegíróink olvasmányos, keresésre optimalizált szöveget írnak.'},
+            attrs:{t:'Töltse ki az attribútumokat', w:'Az attribútumok (akadálymentesség, Wi-Fi, kártyás fizetés…) szűrik a találatokat – nélkülük nem jelenik meg.', h:'Átnézzük és kitöltjük a kategóriájához elérhető összes attribútumot.'},
+            reviews10:{t:'Szerezzen több mint 10 értékelést', w:'Az ügyfelek <strong>91%-a</strong> olvas értékeléseket és <strong>84%-uk</strong> személyes ajánlásként bízik bennük.', h:'Stratégiát és eszközöket adunk a szisztematikus, etikus értékelésgyűjtéshez.'},
+            rating42:{t:'Emelje az átlagértékelést 4,2 ★ fölé', w:'A 4,0 ★ alatti cégeket csak kevés ügyfél választja; már tizedpontok is növelik a kattintást.', h:'Az elégedett ügyfelekre fókuszáljuk a gyűjtést, a negatív értékeléseket profin kezeljük.'},
+            reply:{t:'Válaszoljon minden értékelésre', w:'A válaszoló cégek <strong>1,7× megbízhatóbbnak</strong> tűnnek, és a Google jutalmazza az aktivitást.', h:'Átvesszük a kommunikációt – gyorsan és a cég stílusához illően.'},
+            qa:{t:'Használja a Kérdések és válaszok szekciót', w:'A proaktív GYIK tehermentesíti a személyzetet és további kulcsszavakat visz a profilba.', h:'Stratégiai kérdés-válasz készletet állítunk össze a valós keresések alapján.'},
+            chat:{t:'Aktiválja az üzenetküldést (Chat / WhatsApp)', w:'A gyors kérdés lehetősége gyakran dönt a cégválasztásról és növeli a megkeresések számát.', h:'Aktiváljuk a chatet, és a beérkező üzenetek kezelését is vállaljuk.'},
+            products:{t:'Adjon hozzá termékeket, szolgáltatásokat vagy menüt', w:'A profilban megjelenő kínálat lerövidíti a vásárlási folyamatot és azonnali cselekvésre ösztönöz.', h:'Lefotózzuk és leírjuk a kulcstermékeket, és vonzóan elhelyezzük a profilban.'},
+            services:{t:'Aktiválja a Foglalás / Rendelés funkciót', w:'A közvetlen foglalási link lerövidíti a konverzió útját és növeli az interakciót.', h:'Összekötjük a profilt a foglalási rendszerével, vagy segítünk újat bevezetni.'},
+            posts:{t:'Használja a Bejegyzéseket', w:'A bejegyzések ingyenes hirdetési felületek a Google-ön, és bizonyítottan növelik a CTR-t.', h:'Szerkesztési tervet készítünk és rendszeresen közzéteszünk vonzó bejegyzéseket.'},
+            posts14:{t:'Növelje a bejegyzések gyakoriságát', w:'A 7–14 naponkénti aktivitás élő profilt jelez, amit a Google jobb pozícióval jutalmaz.', h:'A kezelés részeként rendszeresen publikálunk Ön helyett.'}
+        }
+    }
+    };
+
+    // ===================== CORE =====================
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => document.querySelectorAll(s);
+    const esc = (str) => (str === null || str === undefined) ? '' : String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+    let lang = 'cs';
+    const t = (key) => (I18N[lang] && I18N[lang][key]) ?? I18N.cs[key] ?? key;
+    const tf = (key, params) => { let s = t(key); Object.entries(params||{}).forEach(([k,v]) => s = s.replace('{'+k+'}', v)); return s; };
+    const tr = (id) => (I18N[lang].R && I18N[lang].R[id]) || I18N.cs.R[id];
+
+    function applyStatic() {
+        $$('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+        document.documentElement.lang = lang;
+    }
+
+    let toastTimeout;
+    function showToast(msg) {
+        $('#toast-message').innerText = msg;
+        $('#toast').classList.remove('opacity-0');
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => $('#toast').classList.add('opacity-0'), 3200);
+    }
+    function toggleMobileMenu() {
+        const sb = $('#sidebar'), ov = $('#mobile-overlay');
+        sb.classList.toggle('-translate-x-full');
+        if (ov.classList.contains('hidden')) { ov.classList.remove('hidden'); setTimeout(() => ov.classList.remove('opacity-0'), 10); }
+        else { ov.classList.add('opacity-0'); setTimeout(() => ov.classList.add('hidden'), 300); }
+    }
+
+    // ---------- State ----------
+    let placesService = null, streetViewService = null, googleReady = false;
+    let currentView = 'welcome';
+    let currentPlaceDetails = null;
+    let competitors = [], competitorsLoaded = false;
+    let manualChecklistState = {};
+    let competitorsState = {};
+    const MAX_COMPETITORS = 2;
+    const RANK_COLORS = ['#16a34a', '#65a30d', '#f59e0b', '#dc2626'];
+    const placeDetailsFields = ['place_id','name','formatted_address','rating','user_ratings_total','types','url','geometry','opening_hours','website','formatted_phone_number','photos','reviews','business_status','editorial_summary','wheelchair_accessible_entrance','plus_code','price_level'];
+
+    const fmtK = (v) => new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 0 }).format(Math.round(v)) + ' Kč';
+
+    // ---------- Navigation ----------
+    const VIEW_TITLE_KEYS = { welcome:'tWelcome', audit:'tAudit', comparison:'tComparison', solution:'tSolution', pricing:'tPricing', references:'tReferences' };
+    const NAV_IDS = { welcome:'nav-welcome', audit:'nav-audit', comparison:'nav-comparison', solution:'nav-solution', pricing:'nav-pricing', references:'nav-references' };
+
+    function setNavState() {
+        const has = !!currentPlaceDetails;
+        ['nav-audit','nav-comparison','nav-solution'].forEach(id => {
+            const b = document.getElementById(id);
+            b.disabled = !has;
+            b.classList.toggle('opacity-40', !has);
+            b.classList.toggle('cursor-not-allowed', !has);
+        });
+    }
+    function highlightNav(activeId) {
+        $$('.nav-item').forEach(btn => {
+            const on = btn.id === activeId;
+            btn.classList.toggle('bg-green-50', on);
+            btn.classList.toggle('text-brand-600', on);
+            btn.classList.toggle('text-gray-600', !on);
+            btn.classList.toggle('hover:bg-gray-50', !on);
+            const num = btn.querySelector('.step-num');
+            if (num) {
+                num.classList.toggle('bg-brand-500', on); num.classList.toggle('text-white', on);
+                num.classList.toggle('border-brand-500', on); num.classList.toggle('border-gray-300', !on);
+            }
+        });
+    }
+    function goToView(view) {
+        if (['audit','comparison','solution'].includes(view) && !currentPlaceDetails) return;
+        currentView = view;
+        ['welcome','audit','comparison','solution','pricing','references'].forEach(k => $('#'+k+'-view').classList.toggle('hidden', k !== view));
+        $('#view-title').innerText = t(VIEW_TITLE_KEYS[view]);
+        $('#main-scroll').scrollTop = 0;
+        highlightNav(NAV_IDS[view]);
+        if (window.innerWidth < 768 && !$('#sidebar').classList.contains('-translate-x-full')) toggleMobileMenu();
+        if (view === 'welcome') renderWelcome();
+        else if (view === 'audit') renderAuditView(currentPlaceDetails);
+        else if (view === 'comparison') { if (!competitorsLoaded) findAndRenderCompetitors(currentPlaceDetails); else renderComparisonUI(); }
+        else if (view === 'solution') renderSolution();
+        else if (view === 'pricing') renderPricing();
+        else if (view === 'references') renderReferences();
+    }
+    function setLang(l) {
+        lang = l;
+        $('#lang-select').value = l;
+        applyStatic();
+        goToView(currentView);
+        updateHeaderChips();
+    }
+
+    // ---------- Google Maps loader (robust) ----------
+    const API_KEY_OVERRIDE = (() => { try { return new URLSearchParams(location.hash.replace(/^#/, '')).get('apikey'); } catch (e) { return null; } })();
+    const EFFECTIVE_API_KEY = (API_KEY_OVERRIDE && API_KEY_OVERRIDE.trim()) || API_KEY;
+    function showApiError(msgKey) {
+        const el = $('#api-error-banner');
+        el.querySelector('span').textContent = t(msgKey);
+        const inp = $('#api-key-input'), btn = $('#api-key-apply');
+        if (inp) inp.placeholder = t('apiKeyPh');
+        if (btn) btn.textContent = t('apiKeyApply');
+        el.classList.remove('hidden');
+        el.dataset.key = msgKey;
+    }
+    function applyApiKeyOverride() {
+        const k = ($('#api-key-input').value || '').trim();
+        if (!k) { $('#api-key-input').focus(); return; }
+        location.hash = 'apikey=' + encodeURIComponent(k);
+        location.reload();
+    }
+    window.applyApiKeyOverride = applyApiKeyOverride;
+    $('#api-key-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyApiKeyOverride(); });
+    window.gm_authFailure = () => showApiError('apiAuthFail');
+
+    function attachMainAutocomplete() {
+        const input = $('#gmf-input');
+        if (!googleReady || !input || input.dataset.acBound) return;
+        input.dataset.acBound = '1';
+        const ac = new google.maps.places.Autocomplete(input, { types:['establishment'], fields:['place_id','name','formatted_address'] });
+        ac.addListener('place_changed', () => {
+            const p = ac.getPlace();
+            if (p && p.place_id) startAnalysisFlow(p.place_id);
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            setTimeout(() => {
+                if (!$('#audit-view').classList.contains('hidden')) return; // autocomplete už výběr zpracoval
+                const q = input.value.trim();
+                if (!q || !placesService) return;
+                placesService.findPlaceFromQuery({ query:q, fields:['place_id','name'] }, (res, st) => {
+                    if (st === google.maps.places.PlacesServiceStatus.OK && res && res[0]) startAnalysisFlow(res[0].place_id);
+                    else showToast(t('errNotFound'));
+                });
+            }, 250);
+        });
+    }
+    function initGoogleServices() {
+        if (!window.google || !window.google.maps || !window.google.maps.places) return;
+        googleReady = true;
+        if (API_KEY_OVERRIDE) showToast(t('apiKeyTemp'));
+        placesService = new google.maps.places.PlacesService($('#map-service-container'));
+        streetViewService = new google.maps.StreetViewService();
+        attachMainAutocomplete();
+    }
+    window.initGoogleServices = initGoogleServices;
+    (function loadGoogleMaps() {
+        const s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + EFFECTIVE_API_KEY + '&libraries=places,geometry&language=' + (lang === 'cs' ? 'cs' : lang) + '&callback=initGoogleServices';
+        s.async = true;
+        s.onerror = () => showApiError('apiLoadFail');
+        document.head.appendChild(s);
+        setTimeout(() => { if (!googleReady && $('#api-error-banner').classList.contains('hidden')) showApiError('apiInitFail'); }, 10000);
+    })();
+
+    // ---------- Welcome ----------
+    function renderWelcome() {
+        $('#welcome-view').innerHTML = `
+            <div class="pt-8 sm:pt-16 text-center mb-10">
+                <div class="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-1.5 shadow-sm mb-6">
+                    <span class="w-2 h-2 rounded-full bg-brand-500"></span>
+                    <span class="text-xs font-semibold text-gray-600 uppercase tracking-wider">${t('wBadge')}</span>
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-4">${t('wTitle')}</h1>
+                <p class="text-gray-500 max-w-xl mx-auto leading-relaxed">${t('wSubtitle')}</p>
+            </div>
+            <div class="card-minimal p-2 flex items-center gap-3 max-w-xl mx-auto focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
+                <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 ml-1"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <input type="text" id="gmf-input" placeholder="${t('wSearchPh')}" class="flex-1 bg-transparent outline-none text-base text-gray-900 placeholder-gray-400 pr-3 min-w-0">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12">
+                ${[['fa-gears','wF1t','wF1d'],['fa-lightbulb','wF2t','wF2d'],['fa-file-invoice-dollar','wF3t','wF3d']].map(f => `
+                <div class="card-minimal p-5">
+                    <div class="w-9 h-9 rounded-lg border border-green-200 bg-green-50 text-brand-600 flex items-center justify-center mb-3"><i class="fa-solid ${f[0]}"></i></div>
+                    <p class="font-semibold text-sm text-gray-900 mb-1">${t(f[1])}</p>
+                    <p class="text-xs text-gray-500 leading-relaxed">${t(f[2])}</p>
+                </div>`).join('')}
+            </div>`;
+        attachMainAutocomplete();
+    }
+
+    // ---------- Checklist definition ----------
+    const CHECKLIST = [
+        { icon:'fa-key', gk:'g_basic', items:[{id:'check-claimed', k:'c_claimed'}] },
+        { icon:'fa-circle-info', gk:'g_info', items:[
+            {id:'check-primary',k:'c_primary'},{id:'check-secondary',k:'c_secondary'},{id:'check-address',k:'c_address'},
+            {id:'check-website',k:'c_website'},{id:'check-phone',k:'c_phone'},{id:'check-hours',k:'c_hours'},
+            {id:'check-namespam',k:'c_namespam'},{id:'check-nap',k:'c_nap'} ]},
+        { icon:'fa-image', gk:'g_content', items:[
+            {id:'check-ownerphotos',k:'c_ownerphotos'},{id:'check-photos10',k:'c_photos10'},{id:'check-streetview',k:'c_streetview'},
+            {id:'check-vtour',k:'c_vtour'},{id:'check-drone',k:'c_drone'},{id:'check-video',k:'c_video'},
+            {id:'check-desc',k:'c_desc'},{id:'check-attrs',k:'c_attrs'} ]},
+        { icon:'fa-basket-shopping', gk:'g_products', items:[{id:'check-products',k:'c_products'},{id:'check-services',k:'c_services'}] },
+        { icon:'fa-bullhorn', gk:'g_posts', items:[{id:'check-posts',k:'c_posts'},{id:'check-posts14',k:'c_posts14'}] },
+        { icon:'fa-circle-question', gk:'g_qa', items:[{id:'check-qa',k:'c_qa'}] },
+        { icon:'fa-users', gk:'g_inter', items:[{id:'review-reply',k:'c_reply',type:'select'},{id:'check-messaging',k:'c_messaging'},{id:'check-whatsapp',k:'c_whatsapp'}] },
+    ];
+    function autoCheckMap(d) {
+        return {
+            'check-primary': !!(d.types && d.types.length > 0),
+            'check-secondary': !!(d.types && d.types.length > 1),
+            'check-address': !!d.formatted_address,
+            'check-website': !!d.website,
+            'check-phone': !!d.formatted_phone_number,
+            'check-hours': !!d.opening_hours,
+            'check-photos10': !!(d.photos && d.photos.length >= 10),
+            'check-desc': !!(d.editorial_summary && d.editorial_summary.overview),
+        };
+    }
+
+    // ---------- Score ----------
+    function calculateScore(company, state, withBreakdown = false) {
+        let score = 0, max = 0;
+        const breakdown = [];
+        const subs = { basic:{g:0,m:0}, info:{g:0,m:0}, content:{g:0,m:0}, reputation:{g:0,m:0}, engagement:{g:0,m:0} };
+        const add = (sub, pts, cond, label) => {
+            max += pts; subs[sub].m += pts;
+            if (cond) { score += pts; subs[sub].g += pts; if (withBreakdown) breakdown.push({ text: label, earned: true }); }
+            else if (withBreakdown) breakdown.push({ text: label, earned: false });
+        };
+        add('basic', 15, state['check-claimed'], t('c_claimed'));
+        [['check-primary','c_primary'],['check-secondary','c_secondary'],['check-address','c_address'],['check-website','c_website'],['check-phone','c_phone'],['check-hours','c_hours'],['check-namespam','c_namespam'],['check-nap','c_nap']]
+            .forEach(([id,k]) => add('info', 5, state[id], t(k)));
+        [['check-ownerphotos','c_ownerphotos'],['check-photos10','c_photos10'],['check-streetview','c_streetview'],['check-vtour','c_vtour'],['check-drone','c_drone'],['check-video','c_video'],['check-desc','c_desc'],['check-attrs','c_attrs']]
+            .forEach(([id,k]) => add('content', 5, state[id], t(k)));
+        add('reputation', 10, company.rating >= 4.0, t('s_rating40'));
+        add('reputation', 10, company.user_ratings_total >= 20, t('s_reviews20'));
+        max += 10; subs.reputation.m += 10;
+        const rr = parseInt(state['review-reply-btn'] || '0');
+        if (rr === 2) { score += 10; subs.reputation.g += 10; if (withBreakdown) breakdown.push({text:t('s_replyFull'), earned:true}); }
+        else if (rr === 1) { score += 5; subs.reputation.g += 5; if (withBreakdown) breakdown.push({text:t('s_replyPart'), earned:true}); }
+        else if (withBreakdown) breakdown.push({text:t('s_replyNone'), earned:false});
+        add('engagement', 5, state['check-products'], t('c_products'));
+        add('engagement', 5, state['check-services'], t('c_services'));
+        add('engagement', 10, state['check-posts'], t('c_posts'));
+        add('engagement', 5, state['check-posts14'], t('c_posts14'));
+        add('engagement', 5, state['check-qa'], t('c_qa'));
+        add('engagement', 5, state['check-messaging'], t('c_messaging'));
+        add('engagement', 5, state['check-whatsapp'], t('c_whatsapp'));
+        return { score: max > 0 ? Math.round((score/max)*100) : 0, breakdown, subs };
+    }
+    const scoreColor = (s) => s <= 40 ? '#dc2626' : (s <= 75 ? '#f59e0b' : '#16a34a');
+
+    // ---------- Audit flow ----------
+    const spinnerHtml = () => `<div class="card-minimal p-16 flex flex-col items-center justify-center gap-4"><i class="fa-solid fa-spinner fa-spin text-3xl text-brand-500"></i><p class="text-sm text-gray-500">${t('loading')}</p></div>`;
+
+    function startAnalysisFlow(placeId) {
+        if (!placeId || !placesService) return;
+        competitors = []; competitorsLoaded = false; manualChecklistState = {}; competitorsState = {};
+        currentView = 'audit';
+        ['welcome','comparison','solution','pricing','references'].forEach(k => $('#'+k+'-view').classList.add('hidden'));
+        $('#audit-view').classList.remove('hidden');
+        $('#audit-view').innerHTML = spinnerHtml();
+        $('#view-title').innerText = t('tAudit');
+        highlightNav('nav-audit');
+        placesService.getDetails({ placeId, fields: placeDetailsFields }, (details, status) => {
+            try {
+                if (status === google.maps.places.PlacesServiceStatus.OK && details) {
+                    currentPlaceDetails = details;
+                    setNavState();
+                    renderAuditView(details);
+                    updateHeaderChips();
+                } else {
+                    goToView('welcome'); showToast(t('errLoadCompany'));
+                }
+            } catch (err) { console.error(err); goToView('welcome'); showToast(t('errLoadCompany')); }
+        });
+    }
+    function updateHeaderChips() {
+        const d = currentPlaceDetails;
+        if (!d) {
+            $('#header-company').classList.add('hidden'); $('#header-company').classList.remove('flex');
+            $('#header-score').classList.add('hidden'); $('#header-score').classList.remove('flex');
+            return;
+        }
+        $('#header-company').classList.remove('hidden'); $('#header-company').classList.add('flex');
+        $('#header-company-name').innerText = d.name || '';
+        $('#header-company-rating').innerText = (d.rating ? d.rating.toFixed(1) + ' ★' : '–') + ' · ' + (d.user_ratings_total || 0) + ' ' + t('reviews');
+        $('#header-company-avatar').innerText = (d.name || '?').trim().charAt(0).toUpperCase();
+        $('#header-score').classList.remove('hidden'); $('#header-score').classList.add('flex');
+        const { score } = calculateScore(d, manualChecklistState);
+        $('#header-score-value').innerText = score + ' %';
+        $('#header-score-dot').style.backgroundColor = scoreColor(score);
+    }
+
+    function widgetHeader(icon, title, subtitle) {
+        return `<div class="flex items-center gap-3 pb-4 mb-4 border-b border-gray-100">
+            <div class="w-9 h-9 rounded-lg border border-green-200 bg-green-50 text-brand-600 flex items-center justify-center shrink-0"><i class="fa-solid ${icon}"></i></div>
+            <div><h3 class="font-bold text-gray-900 text-sm leading-tight">${title}</h3>${subtitle ? `<p class="text-[11px] text-gray-400 mt-0.5">${subtitle}</p>` : ''}</div></div>`;
+    }
+    const MISSING = () => `<span class="text-red-500 italic">${t('missing')}</span>`;
+    const getData = (v, f) => {
+        if (v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return MISSING();
+        if (typeof f === 'function') { const r = f(v); return (r === null || r === '') ? MISSING() : r; }
+        if (typeof v === 'boolean') return v ? `<span class="text-brand-600 font-medium">${t('yes')}</span>` : `<span class="text-red-500">${t('no')}</span>`;
+        return esc(v);
+    };
+    const detailRow = (label, valueHtml) => `<div class="flex justify-between items-start gap-4 py-2.5 border-b border-gray-50">
+        <span class="text-sm font-medium text-gray-700 shrink-0">${label}</span>
+        <span class="text-sm text-gray-500 text-right break-words min-w-0">${valueHtml}</span></div>`;
+    const sectionLabel = (txt) => `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider pt-4 pb-1">${txt}</p>`;
+    const toggleBtn = (id, label) => `<button type="button" id="${id}" class="text-sm text-brand-600 font-medium hover:text-brand-700 inline-flex items-center gap-1.5 transition"><span>${label}</span><i class="fa-solid fa-chevron-down text-[10px] transition-transform"></i></button>`;
+
+    function renderAuditView(d) {
+        if (!d) return;
+        $('#audit-view').innerHTML = `
+            <div id="verify-warning"></div>
+            <div id="top-overview-panel"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr_0.85fr] gap-6 items-start">
+                <div id="auto-details-widget" class="card-minimal p-6"></div>
+                <div id="manual-analysis-widget" class="card-minimal p-6"></div>
+                <div id="score-widget" class="card-minimal p-6 lg:sticky lg:top-0"></div>
+            </div>`;
+        renderTopPanel(d);
+        renderAutoDetails(d);
+        renderManualChecklist(d);
+        updateVerificationStatus();
+        recalcScoreUI();
+    }
+
+    function renderTopPanel(d) {
+        const photoUrl = (d.photos && d.photos.length > 0) ? d.photos[0].getUrl({ maxWidth:640, maxHeight:400 }) : 'https://placehold.co/640x400/f3f4f6/9ca3af?text=%20';
+        const nameQ = encodeURIComponent(d.name || '');
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${nameQ}&query_place_id=${d.place_id}`;
+        const searchUrl = `https://www.google.com/search?q=${nameQ}`;
+        let stT = t('stInactive'), stC = 'bg-red-50 text-red-600 border-red-100', stI = 'fa-eye-slash';
+        if (d.business_status === 'OPERATIONAL') { stT = t('stVisible'); stC = 'bg-green-50 text-brand-600 border-green-100'; stI = 'fa-eye'; }
+        else if (d.business_status === 'CLOSED_TEMPORARILY') { stT = t('stSuspended'); stC = 'bg-yellow-50 text-yellow-700 border-yellow-100'; stI = 'fa-circle-pause'; }
+        $('#top-overview-panel').innerHTML = `
+            <div class="card-minimal overflow-hidden"><div class="flex flex-col sm:flex-row">
+                <div class="sm:w-64 h-44 sm:h-auto shrink-0 bg-gray-100"><img src="${photoUrl}" alt="" class="w-full h-full object-cover"></div>
+                <div class="flex-1 p-6 flex flex-col justify-between gap-4 min-w-0">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span id="verify-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border bg-red-50 text-red-600 border-red-100"><i class="fa-solid fa-shield-halved"></i> <span id="verify-badge-text">${t('vUnverified')}</span></span>
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${stC}"><i class="fa-solid ${stI}"></i> ${stT}</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 truncate">${esc(d.name)}</h2>
+                        <p class="text-sm text-gray-500 mt-1 truncate">${esc(d.formatted_address)}</p>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-yellow-400 tracking-widest">${d.rating ? '★'.repeat(Math.round(d.rating)) : ''}</span>
+                            <span class="font-bold text-gray-900">${d.rating ? d.rating.toFixed(1) : 'N/A'}</span>
+                            <span class="text-sm text-gray-500">(${d.user_ratings_total || 0} ${t('reviews')})</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="${searchUrl}" target="_blank" class="border border-gray-300 bg-white text-gray-700 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm inline-flex items-center gap-2"><i class="fa-solid fa-magnifying-glass text-xs"></i> ${t('btnGoogle')}</a>
+                            <a href="${mapsUrl}" target="_blank" class="bg-brand-500 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-brand-600 transition shadow-sm inline-flex items-center gap-2"><i class="fa-solid fa-location-dot text-xs"></i> ${t('btnMaps')}</a>
+                        </div>
+                    </div>
+                </div>
+            </div></div>`;
+    }
+
+    function renderAutoDetails(d) {
+        const fmtPhotos = (p) => (!p || p.length === 0) ? MISSING() : (p.length >= 10 ? '10+' : p.length);
+        const fmtPrice = (l) => ({0:'0',1:'€',2:'€€',3:'€€€',4:'€€€€'})[l] ?? null;
+        const hoursHtml = (d.opening_hours && d.opening_hours.weekday_text) ? d.opening_hours.weekday_text.map(day => {
+            const parts = day.split(':');
+            return `<span class="text-gray-700 font-medium">${esc(parts[0].trim())}:</span><span class="text-gray-500">${esc(parts.slice(1).join(':').trim())}</span>`;
+        }).join('') : MISSING();
+        const hasGeo = !!(d.geometry && d.geometry.location);
+        const hasRev = !!(d.reviews && d.reviews.length > 0);
+        $('#auto-details-widget').innerHTML = `
+            ${widgetHeader('fa-gears', t('phase1'), t('phase1sub'))}
+            ${sectionLabel(t('catCategories'))}
+            ${detailRow(t('lPrimary'), getData(d.types && d.types[0], x => esc(x.replace(/_/g,' '))))}
+            ${detailRow(t('lSecondary'), getData(d.types && d.types.slice(1), a => esc(a.map(i => i.replace(/_/g,' ')).join(', '))))}
+            ${sectionLabel(t('catContact'))}
+            ${detailRow(t('lAddress'), getData(d.formatted_address))}
+            ${detailRow(t('lWeb'), getData(d.website, u => `<a href="${esc(u)}" target="_blank" class="text-brand-600 hover:underline break-all">${esc(u)}</a>`))}
+            ${detailRow(t('lPhone'), getData(d.formatted_phone_number))}
+            ${detailRow(t('lPlus'), getData(d.plus_code && d.plus_code.global_code))}
+            ${detailRow(t('lHours'), (d.opening_hours && d.opening_hours.weekday_text) ? toggleBtn('oh-toggle', t('showDays')) : MISSING())}
+            <div id="oh-panel" class="collapse-panel"><div class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm py-3">${hoursHtml}</div></div>
+            ${detailRow(t('lGps'), hasGeo ? toggleBtn('map-toggle', t('showMap')) : MISSING())}
+            <div id="map-panel" class="collapse-panel"><div id="map" class="h-72 w-full rounded-lg my-3 bg-gray-100"></div></div>
+            ${detailRow(t('lSV'), `<button type="button" id="sv-toggle" class="text-sm text-brand-600 font-medium hover:text-brand-700 inline-flex items-center gap-1.5 transition"><span>${t('loading')}</span><i class="fa-solid fa-chevron-down text-[10px] transition-transform"></i></button>`)}
+            <div id="sv-panel" class="collapse-panel"><div id="sv-pano" class="h-72 w-full rounded-lg my-3 bg-gray-100"></div></div>
+            ${sectionLabel(t('catRating'))}
+            ${detailRow(t('lAvg'), getData(d.rating, r => `<strong class="text-gray-900">${r} ★</strong>`))}
+            ${detailRow(t('lCount'), getData(d.user_ratings_total))}
+            ${detailRow(t('lLatest'), hasRev ? toggleBtn('rev-toggle', t('showReviews')) : MISSING())}
+            <div id="rev-panel" class="collapse-panel"><div id="rev-list" class="py-3 space-y-3"></div></div>
+            ${sectionLabel(t('catContent'))}
+            ${detailRow(t('lPhotos'), fmtPhotos(d.photos))}
+            ${detailRow(t('lDesc'), getData(d.editorial_summary && d.editorial_summary.overview))}
+            ${sectionLabel(t('catOther'))}
+            ${detailRow(t('lPriceLevel'), getData(d.price_level, fmtPrice))}
+            ${detailRow(t('lWheelchair'), getData(d.wheelchair_accessible_entrance))}`;
+
+        const bindToggle = (btnId, panelId, showT, hideT, onOpen) => {
+            const btn = document.getElementById(btnId), panel = document.getElementById(panelId);
+            if (!btn || !panel) return;
+            btn.addEventListener('click', () => {
+                panel.classList.toggle('open');
+                const open = panel.classList.contains('open');
+                btn.querySelector('span').textContent = open ? hideT : showT;
+                btn.querySelector('i').style.transform = open ? 'rotate(180deg)' : '';
+                if (open && onOpen) onOpen();
+            });
+        };
+        bindToggle('oh-toggle','oh-panel',t('showDays'),t('hideDays'));
+        let map = null;
+        bindToggle('map-toggle','map-panel',t('showMap'),t('hideMap'), () => {
+            if (!map && hasGeo) {
+                map = new google.maps.Map($('#map'), { center: d.geometry.location, zoom: 15 });
+                new google.maps.Marker({ position: d.geometry.location, map, title: d.name });
+            }
+            if (map) google.maps.event.trigger(map, 'resize');
+        });
+        const svBtn = $('#sv-toggle');
+        if (hasGeo && streetViewService) {
+            streetViewService.getPanorama({ location: d.geometry.location, radius: 50, source: google.maps.StreetViewSource.OUTDOOR }, (data, status) => {
+                if (!svBtn || !svBtn.isConnected) return;
+                if (status === google.maps.StreetViewStatus.OK) {
+                    svBtn.querySelector('span').textContent = t('showSV');
+                    let pano = null;
+                    bindToggle('sv-toggle','sv-panel',t('showSV'),t('hideSV'), () => {
+                        if (!pano) {
+                            pano = new google.maps.StreetViewPanorama($('#sv-pano'), { position: d.geometry.location, pov:{heading:165,pitch:0}, linksControl:true, panControl:true, zoomControl:true, enableCloseButton:false });
+                            pano.setOptions({ addressControl:false });
+                        }
+                    });
+                } else { svBtn.outerHTML = MISSING(); }
+            });
+        } else if (svBtn) { svBtn.outerHTML = MISSING(); }
+        if (hasRev) {
+            bindToggle('rev-toggle','rev-panel',t('showReviews'),t('hideReviews'), () => {
+                const list = $('#rev-list');
+                if (list.childElementCount > 0) return;
+                list.innerHTML = [...d.reviews].sort((a,b) => b.time - a.time).filter(r => r.text && r.text.trim() !== '').slice(0,3).map(r => `
+                    <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 text-left">
+                        <div class="flex justify-between items-center mb-1.5"><span class="text-sm font-semibold text-gray-900">${esc(r.author_name)}</span><span class="text-yellow-400 text-sm tracking-widest">${'★'.repeat(Math.round(r.rating))}</span></div>
+                        <p class="text-sm text-gray-600 leading-relaxed mb-2">${esc(r.text)}</p>
+                        <p class="text-xs text-gray-400">${new Date(r.time*1000).toLocaleDateString('cs-CZ')}</p>
+                    </div>`).join('');
+            });
+        }
+    }
+
+    function replySelectHtml(btnId, value) {
+        const labels = { '0':t('rNo'), '1':t('rPart'), '2':t('rYes') };
+        return `<div class="relative">
+            <button type="button" id="${btnId}" data-value="${value}" class="review-select-btn border border-gray-300 bg-white text-gray-700 py-1 px-3 rounded-lg text-xs font-medium hover:bg-gray-50 transition inline-flex items-center gap-2"><span>${labels[value] || t('rNo')}</span><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
+            <ul class="review-select-options hidden absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[120px] overflow-hidden text-sm">
+                <li data-value="0" class="px-3 py-2 hover:bg-gray-50 cursor-pointer">${t('rNo')}</li>
+                <li data-value="1" class="px-3 py-2 hover:bg-gray-50 cursor-pointer">${t('rPart')}</li>
+                <li data-value="2" class="px-3 py-2 hover:bg-gray-50 cursor-pointer">${t('rYes')}</li>
+            </ul></div>`;
+    }
+
+    function renderManualChecklist(d) {
+        const auto = autoCheckMap(d);
+        // inicializace stavu (jen napoprvé, jinak zachovat)
+        CHECKLIST.forEach(g => g.items.forEach(it => {
+            if (it.type === 'select') { if (!('review-reply-btn' in manualChecklistState)) manualChecklistState['review-reply-btn'] = '0'; }
+            else if (!(it.id in manualChecklistState)) manualChecklistState[it.id] = !!auto[it.id];
+        }));
+        let html = widgetHeader('fa-user-check', t('phase2'), t('phase2sub')) + '<div id="manual-checklist" class="space-y-5">';
+        CHECKLIST.forEach(g => {
+            html += `<div><p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2"><i class="fa-solid ${g.icon} text-brand-500"></i> ${t(g.gk)}</p><div class="space-y-0.5">`;
+            g.items.forEach(it => {
+                if (it.type === 'select') {
+                    html += `<div class="flex justify-between items-center gap-3 py-1.5"><label class="text-sm text-gray-700 leading-snug">${t(it.k)}</label>${replySelectHtml('review-reply-btn', manualChecklistState['review-reply-btn'])}</div>`;
+                } else {
+                    const isAuto = !!auto[it.id];
+                    html += `<div class="flex justify-between items-center gap-3 py-1.5">
+                        <label for="${it.id}" class="text-sm text-gray-700 leading-snug cursor-pointer">${t(it.k)}${isAuto ? ` <span class="text-[10px] text-brand-600 font-semibold uppercase tracking-wider ml-1">${t('auto')}</span>` : ''}</label>
+                        <input type="checkbox" id="${it.id}" ${manualChecklistState[it.id] ? 'checked' : ''} ${isAuto ? 'disabled' : ''}></div>`;
+                }
+            });
+            html += '</div></div>';
+        });
+        html += '</div>';
+        $('#manual-analysis-widget').innerHTML = html;
+        $('#manual-checklist').addEventListener('change', (e) => {
+            if (e.target.type === 'checkbox') {
+                manualChecklistState[e.target.id] = e.target.checked;
+                updateVerificationStatus(); recalcScoreUI();
+            }
+        });
+        bindReplySelect($('#review-reply-btn'), (v) => { manualChecklistState['review-reply-btn'] = v; recalcScoreUI(); });
+    }
+    function bindReplySelect(btn, onChange) {
+        if (!btn) return;
+        const options = btn.nextElementSibling;
+        btn.addEventListener('click', (e) => { e.stopPropagation(); options.classList.toggle('hidden'); });
+        options.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'LI') return;
+            btn.dataset.value = e.target.dataset.value;
+            btn.querySelector('span').textContent = e.target.textContent;
+            options.classList.add('hidden');
+            onChange(e.target.dataset.value);
+        });
+    }
+    document.addEventListener('click', () => $$('.review-select-options').forEach(o => o.classList.add('hidden')));
+
+    function updateVerificationStatus() {
+        const verified = !!manualChecklistState['check-claimed'];
+        const badge = $('#verify-badge'), badgeText = $('#verify-badge-text');
+        if (badge && badgeText) {
+            badge.className = `inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${verified ? 'bg-green-50 text-brand-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`;
+            badgeText.textContent = verified ? t('vVerified') : t('vUnverified');
+        }
+        const w = $('#verify-warning');
+        if (w) w.innerHTML = verified ? '' : `
+            <div class="bg-red-50 border border-red-200 rounded-xl p-5 flex flex-col sm:flex-row gap-4">
+                <div class="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div><p class="font-bold text-red-700 text-sm mb-1">${t('warnT')}</p><p class="text-sm text-red-600/80 leading-relaxed">${t('warnD')}</p></div>
+            </div>`;
+    }
+
+    function recalcScoreUI() {
+        if (!currentPlaceDetails) return;
+        const { score, breakdown, subs } = calculateScore(currentPlaceDetails, manualChecklistState, true);
+        renderScoreWidget(score, breakdown, subs);
+        $('#header-score-value').innerText = score + ' %';
+        $('#header-score-dot').style.backgroundColor = scoreColor(score);
+    }
+    function renderScoreWidget(score, breakdown, subs) {
+        const w = $('#score-widget');
+        if (!w) return;
+        const color = scoreColor(score);
+        const subBar = (key, s) => {
+            const pct = s.m > 0 ? Math.round((s.g/s.m)*100) : 0;
+            return `<div class="mb-2.5"><div class="flex justify-between text-[11px] mb-1"><span class="font-semibold text-gray-600">${t(key)}</span><span class="text-gray-400 font-medium">${pct} %</span></div>
+                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="chart-bar h-full rounded-full" style="width:${pct}%; background:${scoreColor(pct)}"></div></div></div>`;
+        };
+        w.innerHTML = `
+            ${widgetHeader('fa-gauge-high', t('scoreTitle'), t('scoreSub'))}
+            <div class="flex flex-col items-center">
+                <div class="score-circle" style="background: conic-gradient(${color} ${score*3.6}deg, #f3f4f6 ${score*3.6}deg);"><span class="relative text-4xl font-extrabold" style="color:${color}">${score}<span class="text-xl">%</span></span></div>
+                <p class="text-xs text-gray-400 mt-4 text-center">${t('scoreNote')}</p>
+            </div>
+            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mt-5 mb-3">${t('subScores')}</p>
+            ${subBar('ssBasic',subs.basic)}${subBar('ssInfo',subs.info)}${subBar('ssContent',subs.content)}${subBar('ssReputation',subs.reputation)}${subBar('ssEngagement',subs.engagement)}
+            <button id="score-bd-toggle" class="w-full mt-4 border border-gray-300 bg-white text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm flex items-center justify-center gap-2">${t('scoreOverview')} <i class="fa-solid fa-chevron-down text-[10px] transition-transform"></i></button>
+            <div id="score-bd-panel" class="collapse-panel"><ul class="pt-4">${breakdown.map(i => `
+                <li class="flex items-center gap-2.5 py-1 text-sm ${i.earned ? 'text-gray-700' : 'text-gray-400'}"><i class="fa-solid ${i.earned ? 'fa-circle-check text-brand-500' : 'fa-circle-xmark text-red-300'} shrink-0"></i><span class="truncate">${i.text}</span></li>`).join('')}</ul></div>`;
+        const tg = $('#score-bd-toggle'), pn = $('#score-bd-panel');
+        tg.addEventListener('click', () => { pn.classList.toggle('open'); tg.querySelector('i').style.transform = pn.classList.contains('open') ? 'rotate(180deg)' : ''; });
+    }
+
+    // ---------- Comparison ----------
+    function initCompetitorState(c) {
+        if (competitorsState[c.place_id]) return;
+        const st = { 'review-reply-btn':'0' };
+        const auto = autoCheckMap(c);
+        CHECKLIST.forEach(g => g.items.forEach(it => { if (it.type !== 'select') st[it.id] = !!auto[it.id]; }));
+        competitorsState[c.place_id] = st;
+    }
+    function findAndRenderCompetitors(main) {
+        $('#comparison-view').innerHTML = spinnerHtml();
+        placesService.nearbySearch({ location: main.geometry.location, radius: '5000', type: main.types && main.types[0] }, async (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                const proms = results.filter(p => p.place_id !== main.place_id).slice(0, MAX_COMPETITORS).map(p => new Promise(res => {
+                    placesService.getDetails({ placeId: p.place_id, fields: placeDetailsFields }, (det, st) => {
+                        if (st === google.maps.places.PlacesServiceStatus.OK && det) {
+                            if (det.geometry && det.geometry.location && google.maps.geometry) {
+                                det.distance = (google.maps.geometry.spherical.computeDistanceBetween(main.geometry.location, det.geometry.location)/1000).toFixed(1);
+                            }
+                            res(det);
+                        } else res(null);
+                    });
+                }));
+                competitors = (await Promise.all(proms)).filter(Boolean);
+                competitors.forEach(initCompetitorState);
+            }
+            competitorsLoaded = true;
+            renderComparisonUI();
+        });
+    }
+    function renderComparisonUI() {
+        $('#comparison-view').innerHTML = `
+            <div class="card-minimal p-5 flex flex-col sm:flex-row gap-3 sm:items-center">
+                <div class="flex-1 flex items-center gap-3 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400 text-sm"></i>
+                    <input type="text" id="competitor-input" placeholder="${t('cmpAddPh')}" class="flex-1 bg-transparent outline-none text-sm min-w-0">
+                </div>
+                <button id="add-competitor-btn" class="bg-brand-500 text-white py-2 px-5 rounded-lg text-sm font-medium hover:bg-brand-600 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2" disabled><i class="fa-solid fa-plus text-xs"></i> ${t('cmpAdd')}</button>
+            </div>
+            <div id="deep-audit-chart" class="card-minimal p-6"></div>
+            <div id="comparison-cards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start"></div>
+            <div id="reviews-podium" class="card-minimal p-6"></div>`;
+        renderAllCardsAndCharts();
+        if (googleReady) {
+            const input = $('#competitor-input'), addBtn = $('#add-competitor-btn');
+            const ac = new google.maps.places.Autocomplete(input, { types:['establishment'], fields:['place_id'] });
+            ac.addListener('place_changed', () => {
+                const p = ac.getPlace();
+                if (p && p.place_id) { addBtn.disabled = false; input.dataset.placeId = p.place_id; }
+                else { addBtn.disabled = true; delete input.dataset.placeId; }
+            });
+        }
+    }
+    function deepScore(c) {
+        const isMain = c.place_id === currentPlaceDetails.place_id;
+        return calculateScore(c, isMain ? manualChecklistState : (competitorsState[c.place_id] || {})).score;
+    }
+    function renderAllCardsAndCharts() {
+        const all = [currentPlaceDetails, ...competitors];
+        const ranked = all.map(c => ({...c, place_id:c.place_id, score: deepScore(c)})).sort((a,b) => b.score - a.score);
+        const colors = new Map(ranked.map((c,i) => [c.place_id, RANK_COLORS[i] || RANK_COLORS[3]]));
+        $('#comparison-cards').innerHTML = all.map(c => competitorCard(c, c.place_id === currentPlaceDetails.place_id, colors.get(c.place_id))).join('');
+        $('#deep-audit-chart').innerHTML = `
+            <div class="flex items-center gap-3 pb-4 mb-2 border-b border-gray-100"><div class="w-9 h-9 rounded-lg border border-green-200 bg-green-50 text-brand-600 flex items-center justify-center"><i class="fa-solid fa-chart-simple"></i></div><h3 class="font-bold text-gray-900 text-sm">${t('cmpChart')}</h3></div>
+            ${ranked.map(c => `<div class="flex items-center gap-4 py-2.5">
+                <div class="w-40 sm:w-52 shrink-0 text-sm font-medium text-gray-700 truncate" title="${esc(c.name)}">${esc(c.name)}</div>
+                <div class="flex-1 h-7 bg-gray-100 rounded-lg overflow-hidden"><div class="chart-bar h-full rounded-lg flex items-center justify-end pr-2.5" style="width:${Math.max(c.score,8)}%; background-color:${colors.get(c.place_id)};"><span class="text-white text-xs font-bold">${c.score}%</span></div></div>
+            </div>`).join('')}`;
+        // Podium
+        const byRating = [...all].sort((a,b) => (b.rating||0)-(a.rating||0) || (b.user_ratings_total||0)-(a.user_ratings_total||0));
+        const medI = ['fa-trophy','fa-medal','fa-medal'], medC = ['#FFD700','#C0C0C0','#CD7F32'];
+        const steps = byRating.slice(0,3).map((c,i) => ({c, r:i}));
+        const order = [steps.find(s=>s.r===1), steps.find(s=>s.r===0), steps.find(s=>s.r===2)].filter(Boolean);
+        $('#reviews-podium').innerHTML = `
+            <div class="flex items-center gap-3 pb-4 mb-4 border-b border-gray-100"><div class="w-9 h-9 rounded-lg border border-green-200 bg-green-50 text-brand-600 flex items-center justify-center"><i class="fa-solid fa-trophy"></i></div><h3 class="font-bold text-gray-900 text-sm">${t('cmpPodium')}</h3></div>
+            <div class="flex justify-center items-end gap-2 h-72 border-b-4 border-gray-200 px-2 sm:px-8">
+            ${order.map(({c,r}) => `<div class="podium-step podium-${r+1}" style="background:${colors.get(c.place_id)};">
+                <div><i class="fa-solid ${medI[r]} text-3xl mb-2" style="color:${medC[r]}; text-shadow:0 1px 3px rgba(0,0,0,.25);"></i>
+                <p class="font-bold text-sm leading-tight break-words px-1" style="text-shadow:0 1px 2px rgba(0,0,0,.3);">${esc(c.name)}</p></div>
+                <div class="font-bold text-lg" style="text-shadow:0 1px 2px rgba(0,0,0,.3);">${c.rating ? c.rating.toFixed(1) : 'N/A'} ★<span class="block text-xs font-normal opacity-90">(${c.user_ratings_total || 0} ${t('reviews')})</span></div>
+            </div>`).join('')}</div>`;
+    }
+    function competitorCard(c, isMain, color) {
+        const score = deepScore(c);
+        const state = isMain ? manualChecklistState : (competitorsState[c.place_id] || {});
+        const auto = autoCheckMap(c);
+        const nameQ = encodeURIComponent(c.name || '');
+        let checklist = '';
+        CHECKLIST.forEach(g => {
+            checklist += `<div class="pt-4"><p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-2"><i class="fa-solid ${g.icon} text-brand-500"></i> ${t(g.gk)}</p>`;
+            g.items.forEach(it => {
+                if (it.type === 'select') {
+                    checklist += `<div class="flex justify-between items-center gap-3 py-1"><label class="text-[13px] text-gray-700">${t(it.k)}</label>${replySelectHtml('rr-'+c.place_id, state['review-reply-btn'] || '0')}</div>`;
+                } else {
+                    checklist += `<div class="flex justify-between items-center gap-3 py-1"><label for="${it.id}-${c.place_id}" class="text-[13px] text-gray-700 cursor-pointer">${t(it.k)}</label><input type="checkbox" id="${it.id}-${c.place_id}" ${state[it.id] ? 'checked' : ''} ${auto[it.id] ? 'disabled' : ''}></div>`;
+                }
+            });
+            checklist += '</div>';
+        });
+        return `<div class="card-minimal p-5 flex flex-col ${isMain ? 'border-2 !border-brand-500' : ''}" data-place-id="${c.place_id}">
+            <div class="flex justify-between items-start gap-3 mb-3">
+                <div class="min-w-0">
+                    ${isMain ? `<span class="inline-block px-2 py-0.5 rounded bg-green-50 text-brand-600 text-[10px] font-bold uppercase tracking-wider border border-green-100 mb-1.5">${t('cmpYour')}</span>` : ''}
+                    <h4 class="font-bold text-gray-900 leading-tight truncate" title="${esc(c.name)}">${esc(c.name)}</h4>
+                    <p class="text-xs text-gray-500 mt-1"><span class="text-yellow-400">★</span> ${c.rating ? c.rating.toFixed(1) : 'N/A'} · ${c.user_ratings_total || 0} ${t('reviews')}${(!isMain && c.distance) ? ` · <i class="fa-solid fa-route text-[10px]"></i> ${c.distance} km` : ''}</p>
+                </div>
+                <div class="flex gap-1.5 shrink-0">${!isMain ? `
+                    <a href="https://www.google.com/search?q=${nameQ}" target="_blank" class="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-gray-700 transition flex items-center justify-center text-xs"><i class="fa-solid fa-magnifying-glass"></i></a>
+                    <a href="https://www.google.com/maps/search/?api=1&query=${nameQ}&query_place_id=${c.place_id}" target="_blank" class="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-gray-700 transition flex items-center justify-center text-xs"><i class="fa-solid fa-location-dot"></i></a>
+                    <button class="remove-btn w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-400 hover:text-red-600 hover:border-red-200 transition flex items-center justify-center text-sm" title="${t('cmpRemove')}" data-place-id="${c.place_id}">×</button>` : ''}
+                </div>
+            </div>
+            <div class="flex items-baseline gap-2 pb-3 border-b border-gray-100"><span class="text-3xl font-extrabold" style="color:${color}">${score}%</span><span class="text-xs text-gray-400 uppercase tracking-wider font-semibold">${t('cmpScore')}</span></div>
+            <div class="divide-y divide-gray-50">${checklist}</div>
+        </div>`;
+    }
+
+    // Delegované eventy porovnání
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#comparison-view')) return;
+        const addBtn = e.target.closest('#add-competitor-btn');
+        if (addBtn) {
+            const input = $('#competitor-input'), id = input.dataset.placeId;
+            if (id && competitors.length < MAX_COMPETITORS) {
+                placesService.getDetails({ placeId: id, fields: placeDetailsFields }, (det, st) => {
+                    if (st === google.maps.places.PlacesServiceStatus.OK && det) {
+                        if (google.maps.geometry && currentPlaceDetails.geometry && det.geometry) {
+                            det.distance = (google.maps.geometry.spherical.computeDistanceBetween(currentPlaceDetails.geometry.location, det.geometry.location)/1000).toFixed(1);
+                        }
+                        competitors.push(det); initCompetitorState(det);
+                        input.value = ''; addBtn.disabled = true; delete input.dataset.placeId;
+                        renderAllCardsAndCharts();
+                    }
+                });
+            } else if (competitors.length >= MAX_COMPETITORS) showToast(tf('cmpMax',{n:MAX_COMPETITORS}));
+            return;
+        }
+        const rm = e.target.closest('.remove-btn');
+        if (rm) {
+            competitors = competitors.filter(c => c.place_id !== rm.dataset.placeId);
+            delete competitorsState[rm.dataset.placeId];
+            renderAllCardsAndCharts();
+            return;
+        }
+        const rBtn = e.target.closest('.review-select-btn');
+        if (rBtn) {
+            e.stopPropagation();
+            const opt = rBtn.nextElementSibling, wasHidden = opt.classList.contains('hidden');
+            $$('.review-select-options').forEach(o => o.classList.add('hidden'));
+            if (wasHidden) opt.classList.remove('hidden');
+            return;
+        }
+        if (e.target.closest('.review-select-options') && e.target.tagName === 'LI') {
+            const card = e.target.closest('[data-place-id]');
+            if (!card) return;
+            const pid = card.dataset.placeId;
+            const st = pid === currentPlaceDetails.place_id ? manualChecklistState : competitorsState[pid];
+            if (st) { st['review-reply-btn'] = e.target.dataset.value; renderAllCardsAndCharts(); updateHeaderChips(); }
+        }
+    });
+    document.addEventListener('change', (e) => {
+        if (!e.target.closest('#comparison-view') || e.target.type !== 'checkbox') return;
+        const card = e.target.closest('[data-place-id]');
+        if (!card) return;
+        const pid = card.dataset.placeId;
+        const st = pid === currentPlaceDetails.place_id ? manualChecklistState : competitorsState[pid];
+        if (st) { st[e.target.id.replace('-'+pid,'')] = e.target.checked; renderAllCardsAndCharts(); updateHeaderChips(); }
+    });
+
+    // ---------- Solution ----------
+    const RECS = [
+        { id:'claimed', cat:'sc_crit', icon:'fa-key', critical:true, cond:(d,s) => !s['check-claimed'] },
+        { id:'primary', cat:'sc_basic', icon:'fa-tags', cond:(d,s) => !s['check-primary'] },
+        { id:'secondary', cat:'sc_basic', icon:'fa-tags', cond:(d,s) => !s['check-secondary'] },
+        { id:'address', cat:'sc_basic', icon:'fa-location-dot', cond:(d,s) => !s['check-address'] },
+        { id:'website', cat:'sc_basic', icon:'fa-globe', cond:(d,s) => !s['check-website'] },
+        { id:'phone', cat:'sc_basic', icon:'fa-phone', cond:(d,s) => !s['check-phone'] },
+        { id:'hours', cat:'sc_basic', icon:'fa-clock', cond:(d,s) => !s['check-hours'] },
+        { id:'namespam', cat:'sc_basic', icon:'fa-signature', cond:(d,s) => !s['check-namespam'] },
+        { id:'nap', cat:'sc_basic', icon:'fa-check-double', cond:(d,s) => !s['check-nap'] },
+        { id:'ownerphotos', cat:'sc_media', icon:'fa-camera-retro', cond:(d,s) => !s['check-ownerphotos'] },
+        { id:'photos10', cat:'sc_media', icon:'fa-images', cond:(d,s) => !s['check-photos10'] },
+        { id:'streetview', cat:'sc_media', icon:'fa-street-view', cond:(d,s) => !s['check-streetview'] },
+        { id:'vtour', cat:'sc_media', icon:'fa-vr-cardboard', cond:(d,s) => !s['check-vtour'] },
+        { id:'drone', cat:'sc_media', icon:'fa-helicopter', cond:(d,s) => !s['check-drone'] },
+        { id:'video', cat:'sc_media', icon:'fa-video', cond:(d,s) => !s['check-video'] },
+        { id:'desc', cat:'sc_media', icon:'fa-circle-info', cond:(d,s) => !s['check-desc'] },
+        { id:'attrs', cat:'sc_media', icon:'fa-list-check', cond:(d,s) => !s['check-attrs'] },
+        { id:'reviews10', cat:'sc_inter', icon:'fa-star', cond:(d,s) => (d.user_ratings_total || 0) < 10 },
+        { id:'rating42', cat:'sc_inter', icon:'fa-star-half-stroke', cond:(d,s) => (d.rating || 0) < 4.2 },
+        { id:'reply', cat:'sc_inter', icon:'fa-reply', cond:(d,s) => parseInt(s['review-reply-btn'] || '0') < 2 },
+        { id:'qa', cat:'sc_inter', icon:'fa-circle-question', cond:(d,s) => !s['check-qa'] },
+        { id:'chat', cat:'sc_inter', icon:'fa-comments', cond:(d,s) => !s['check-messaging'] || !s['check-whatsapp'] },
+        { id:'products', cat:'sc_adv', icon:'fa-basket-shopping', cond:(d,s) => !s['check-products'] },
+        { id:'services', cat:'sc_adv', icon:'fa-calendar-check', cond:(d,s) => !s['check-services'] },
+        { id:'posts', cat:'sc_adv', icon:'fa-bullhorn', cond:(d,s) => !s['check-posts'] },
+        { id:'posts14', cat:'sc_adv', icon:'fa-clock-rotate-left', cond:(d,s) => !s['check-posts14'] },
+    ];
+    function activeRecs() { return RECS.filter(r => r.cond(currentPlaceDetails, manualChecklistState)); }
+    function recommendedPackage(score) { return score < 40 ? 'package_professional' : (score < 70 ? 'package_basic' : 'package_mini'); }
+
+    function renderSolution() {
+        if (!currentPlaceDetails) return;
+        const { score } = calculateScore(currentPlaceDetails, manualChecklistState);
+        const active = activeRecs();
+        let html = `
+            <div class="card-minimal p-6 sm:p-8 relative overflow-hidden">
+                <div class="absolute left-0 top-0 w-1.5 h-full bg-brand-500"></div>
+                <div class="pl-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">${t('tSolution')}</p>
+                        <h2 class="text-2xl font-bold text-gray-900">${esc(currentPlaceDetails.name)}</h2>
+                        <p class="text-sm text-gray-500 mt-2">${tf('solSub',{score})}</p>
+                    </div>
+                    <button onclick="goToView('pricing')" class="bg-brand-500 text-white py-2.5 px-5 rounded-lg text-sm font-bold hover:bg-brand-600 transition shadow-sm shrink-0 inline-flex items-center gap-2">${t('solBuildQuote')} <i class="fa-solid fa-arrow-right text-xs"></i></button>
+                </div>
+            </div>`;
+        if (active.length === 0) {
+            html += `<div class="card-minimal p-12 text-center">
+                <div class="w-16 h-16 rounded-full bg-green-50 text-brand-500 flex items-center justify-center text-3xl mx-auto mb-5"><i class="fa-solid fa-circle-check"></i></div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2">${t('solCongrats')}</h2>
+                <p class="text-sm text-gray-500 max-w-md mx-auto">${t('solCongratsD')}</p></div>`;
+        } else {
+            const grouped = {};
+            active.forEach(r => (grouped[r.cat] = grouped[r.cat] || []).push(r));
+            ['sc_crit','sc_basic','sc_media','sc_inter','sc_adv'].forEach(cat => {
+                if (!grouped[cat]) return;
+                html += `<div class="pt-2">
+                    <div class="flex items-center justify-between mb-3"><h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">${t(cat)}</h3><span class="text-xs text-gray-400 font-medium">${grouped[cat].length} ${t('solRecs')}</span></div>
+                    <div class="space-y-4">`;
+                grouped[cat].forEach(r => {
+                    const x = tr(r.id);
+                    html += `<div class="card-minimal p-6 relative overflow-hidden">
+                        <div class="absolute left-0 top-0 w-1 h-full ${r.critical ? 'bg-red-500' : 'bg-brand-500'}"></div>
+                        <div class="flex gap-4 pl-1">
+                            <div class="w-10 h-10 rounded-lg border ${r.critical ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-brand-600 border-green-100'} flex items-center justify-center shrink-0"><i class="fa-solid ${r.icon}"></i></div>
+                            <div class="min-w-0">
+                                <h4 class="font-bold text-gray-900 mb-3">${x.t}</h4>
+                                <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">${t('solWhy')}</p>
+                                <p class="text-sm text-gray-600 leading-relaxed mb-4">${x.w}</p>
+                                <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">${t('solHow')}</p>
+                                <p class="text-sm text-gray-600 leading-relaxed">${x.h}</p>
+                            </div>
+                        </div></div>`;
+                });
+                html += '</div></div>';
+            });
+        }
+        $('#solution-view').innerHTML = html;
+    }
+
+    // ===================== PRICING =====================
+    const TIER_COLORS = { MINI:'#f9bc15', BASIC:'#4285f4', PROFESSIONAL:'#16a34a', INDIVIDUAL:'#ee4036', PREMIUM:'#ee4036' };
+    const PRICING = {
+        packages: [
+            { id:'package_mini', tier:'MINI', yearly:19900, savY:2890, savB:890 },
+            { id:'package_basic', tier:'BASIC', yearly:29900, savY:7790, savB:3990 },
+            { id:'package_professional', tier:'PROFESSIONAL', yearly:39900, savY:8790, savB:3190 },
+            { id:'package_premium', tier:'INDIVIDUAL', yearly:0 },
+        ],
+        packageRows: [
+            {k:'f_opt', v:['✓','✓','✓','i']}, {k:'f_manage', v:['✓','✓','✓','i']},
+            {k:'f_news', sub:1, v:['1','4','6','i']}, {k:'f_products', sub:1, v:['5','20','40','i']},
+            {k:'f_gsv', v:['✓','✓','✓','i']}, {k:'f_steps', sub:1, v:['2–10','11–30','31–60','i']},
+            {k:'f_photo', sub:1, v:['3','10','20','i']}, {k:'f_gsvair', v:['✗','6–15','16–25','i']},
+            {k:'f_360', sub:1, v:['✗','6','12','i']}, {k:'f_video', sub:1, v:['✗','2×30s','6×30s','i']},
+        ],
+        gmfOnetime: [
+            { id:'gmf_optimize_one', nk:'n_opt_one', price:4990 },
+            { id:'gmf_optimize_full', nk:'n_opt_full', price:2990 },
+            { id:'gmf_update', nk:'n_update', price:1990 },
+        ],
+        gmfManage: [
+            { id:'gmf_manage_mini', tier:'MINI', monthly:990, yearly:9900, savY:1980 },
+            { id:'gmf_manage_basic', tier:'BASIC', monthly:1090, yearly:10900, savY:2180 },
+            { id:'gmf_manage_pro', tier:'PROFESSIONAL', monthly:1190, yearly:11900, savY:2380 },
+            { id:'gmf_manage_premium', tier:'PREMIUM', monthly:0, yearly:0 },
+        ],
+        gmfManageRows: [ {k:'f_news', v:['1','4','6','i']}, {k:'f_products', v:['5','20','40','i']} ],
+        gsv: [
+            { id:'gsv_mini', tier:'MINI', price:9900 }, { id:'gsv_basic', tier:'BASIC', price:14900 },
+            { id:'gsv_pro', tier:'PROFESSIONAL', price:19900 }, { id:'gsv_premium', tier:'PREMIUM', price:0 },
+        ],
+        gsvRows: [ {k:'f_steps', v:['2–10','11–30','31–60','i']}, {k:'f_photo', v:['3','10','20','i']} ],
+        gsvAir: [
+            { id:'gsva_mini', tier:'MINI', price:5900 }, { id:'gsva_basic', tier:'BASIC', price:8900 },
+            { id:'gsva_pro', tier:'PROFESSIONAL', price:13900 }, { id:'gsva_premium', tier:'PREMIUM', price:0 },
+        ],
+        gsvAirRows: [ {k:'f_photo', v:['3–5','6–15','16–25','i']}, {k:'f_360', v:['2','6','12','i']}, {k:'f_video', v:['✗','2×30s','6×30s','i']} ],
+        extras: [
+            { id:'gsv_car_with', nk:'n_car_with', price:5900 },
+            { id:'gsv_car_without', nk:'n_car_without', price:8900 },
+        ],
+        nfc: [
+            { id:'nfc_karta', nk:'n_nfc_card', price:990, tier:840 },
+            { id:'nfc_stojanek', nk:'n_nfc_stand', price:1390, tier:1190 },
+            { id:'nfc_stojanek_maly', nk:'n_nfc_stand_s', price:990, tier:840 },
+            { id:'nfc_plaketa_hranata', nk:'n_nfc_plaque_sq', price:990, tier:840 },
+            { id:'nfc_plaketa_menu', nk:'n_nfc_plaque_menu', price:990, tier:840 },
+            { id:'nfc_plaketa_kulata', nk:'n_nfc_plaque_round', price:990, tier:840 },
+            { id:'nfc_samolepka', nk:'n_sticker', price:199 },
+        ],
+    };
+    const ITEM_INDEX = {};
+    PRICING.packages.forEach(d => ITEM_INDEX[d.id] = { kind:'package', def:d, group:'package' });
+    PRICING.gmfManage.forEach(d => ITEM_INDEX[d.id] = { kind:'manage', def:d, group:'manage' });
+    PRICING.gsv.forEach(d => ITEM_INDEX[d.id] = { kind:'gsv', def:d, group:'gsv' });
+    PRICING.gsvAir.forEach(d => ITEM_INDEX[d.id] = { kind:'gsvair', def:d, group:'gsvair' });
+    PRICING.gmfOnetime.forEach(d => ITEM_INDEX[d.id] = { kind:'onetime', def:d, group: d.id.startsWith('gmf_optimize') ? 'optimize' : null });
+    PRICING.extras.forEach(d => ITEM_INDEX[d.id] = { kind:'extra', def:d, group:'extra' });
+    PRICING.nfc.forEach(d => ITEM_INDEX[d.id] = { kind:'nfc', def:d, group:null });
+
+    const pricingState = { sel: {}, termMain:'yearly', termManage:'yearly' };
+    const TERM_MULT = { monthly:1, quarterly:3, half:6 };
+    function calcTerm(yearly, term) {
+        if (!yearly) return 0;
+        if (term === 'yearly') return yearly;
+        return Math.round(yearly/10) * TERM_MULT[term];
+    }
+    function itemName(id) {
+        const x = ITEM_INDEX[id]; if (!x) return id;
+        if (x.kind === 'package') return t('n_pkg') + ' ' + x.def.tier;
+        if (x.kind === 'manage') return t('n_manage') + ' ' + x.def.tier;
+        if (x.kind === 'gsv') return 'GSV – ' + x.def.tier;
+        if (x.kind === 'gsvair') return 'GSV AIR – ' + x.def.tier;
+        return t(x.def.nk);
+    }
+    function itemUnitPrice(id) {
+        const x = ITEM_INDEX[id];
+        if (x.kind === 'package') return calcTerm(x.def.yearly, pricingState.termMain);
+        if (x.kind === 'manage') return pricingState.termManage === 'yearly' ? x.def.yearly : x.def.monthly * TERM_MULT[pricingState.termManage];
+        return x.def.price;
+    }
+    function itemPayKey(id) {
+        const x = ITEM_INDEX[id];
+        if (x.kind === 'package') return 'pl_' + pricingState.termMain;
+        if (x.kind === 'manage') return 'pl_' + pricingState.termManage;
+        return 'pl_onetime';
+    }
+    function toggleItem(id, on) {
+        const x = ITEM_INDEX[id]; if (!x) return;
+        if (on) {
+            if (x.group) Object.keys(pricingState.sel).forEach(sid => { if (ITEM_INDEX[sid] && ITEM_INDEX[sid].group === x.group && sid !== id) delete pricingState.sel[sid]; });
+            pricingState.sel[id] = pricingState.sel[id] || { qty:1, disc:0 };
+        } else delete pricingState.sel[id];
+    }
+    function computeTotals() {
+        let recurring = 0, onetime = 0, origSum = 0, finalSum = 0, pkgSavings = 0;
+        const lines = Object.keys(pricingState.sel).map(id => {
+            const x = ITEM_INDEX[id], s = pricingState.sel[id];
+            const qty = Math.max(1, parseInt(s.qty) || 1), disc = Math.min(100, Math.max(0, parseFloat(s.disc) || 0));
+            const origUnit = itemUnitPrice(id);
+            let effUnit = origUnit, tierApplied = false;
+            if (x.kind === 'nfc' && x.def.tier && qty >= 5) { effUnit = x.def.tier; tierApplied = true; }
+            const orig = origUnit * qty;
+            const final = effUnit * qty * (1 - disc/100);
+            const rec = (x.kind === 'package' || x.kind === 'manage');
+            if (rec) recurring += final; else onetime += final;
+            origSum += orig; finalSum += final;
+            return { id, name: itemName(id), payKey: itemPayKey(id), qty, disc, origUnit, effUnit, orig, final, rec, tierApplied, individual: origUnit === 0 && (x.kind === 'package' || x.kind === 'manage' || x.def.price === 0) };
+        });
+        const mainPkg = Object.keys(pricingState.sel).find(id => ITEM_INDEX[id].kind === 'package');
+        if (mainPkg) { const d = ITEM_INDEX[mainPkg].def; if (d.savY) pkgSavings += pricingState.termMain === 'yearly' ? d.savY : d.savB; }
+        const mng = Object.keys(pricingState.sel).find(id => ITEM_INDEX[id].kind === 'manage');
+        if (mng && pricingState.termManage === 'yearly') { const d = ITEM_INDEX[mng].def; if (d.savY) pkgSavings += d.savY; }
+        return { lines, recurring, onetime, grand: recurring + onetime, discount: (origSum - finalSum) + pkgSavings };
+    }
+
+    const cellCls = 'px-3 py-2.5 flex items-center justify-center text-center text-sm border-b border-gray-100';
+    const labelCls = 'px-3 py-2.5 flex items-center text-sm font-medium text-gray-700 bg-gray-50 border-b border-gray-100';
+    function termSelectHtml(id, current) {
+        const opts = [['yearly','pYearly'],['monthly','pMonthly'],['quarterly','pQuarterly'],['half','pHalf']];
+        return `<select id="${id}" class="border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs font-medium outline-none cursor-pointer hover:border-brand-500">${opts.map(o => `<option value="${o[0]}" ${current===o[0]?'selected':''}>${t(o[1])}</option>`).join('')}</select>`;
+    }
+    function tierTable({tiers, rows, priceOf, savingsOf, termSelectId, termValue}) {
+        const ind = t('f_ind');
+        let h = `<div class="overflow-x-auto"><div class="min-w-[720px] grid" style="grid-template-columns: minmax(170px,1.4fr) repeat(4, minmax(125px,1fr));">`;
+        h += `<div class="${labelCls} bg-white"></div>`;
+        tiers.forEach(d => h += `<div class="px-3 py-2.5 flex items-center justify-center text-center text-xs font-bold text-white uppercase tracking-wider rounded-t-lg" style="background:${TIER_COLORS[d.tier]}">${d.tier}</div>`);
+        rows.forEach(r => {
+            h += `<div class="${labelCls} ${r.sub ? 'pl-7 !font-normal text-gray-500' : ''}">${t(r.k)}</div>`;
+            r.v.forEach(v => {
+                let out = v === 'i' ? `<span class="text-xs text-gray-400 italic">${ind}</span>` : (v === '✓' ? '<span class="text-brand-500 font-bold text-base">✓</span>' : (v === '✗' ? '<span class="text-gray-300 font-bold text-base">✗</span>' : esc(v)));
+                h += `<div class="${cellCls} text-gray-600">${out}</div>`;
+            });
+        });
+        h += `<div class="${labelCls} uppercase text-xs tracking-wider">${t('pPrice')}</div>`;
+        tiers.forEach(d => { const p = priceOf(d); h += `<div class="${cellCls} font-bold text-gray-900">${p > 0 ? fmtK(p) : `<span class="text-xs text-gray-400 italic font-normal">${ind}</span>`}</div>`; });
+        if (savingsOf) {
+            h += `<div class="${labelCls} uppercase text-xs tracking-wider">${t('pSavings')}</div>`;
+            tiers.forEach(d => { const s = savingsOf(d); h += `<div class="${cellCls} font-bold text-brand-600">${s > 0 ? fmtK(s) : '—'}</div>`; });
+        }
+        if (termSelectId) {
+            h += `<div class="${labelCls} uppercase text-xs tracking-wider">${t('pPayType')}</div>`;
+            h += `<div class="${cellCls}">${termSelectHtml(termSelectId, termValue)}</div>` + `<div class="${cellCls}"></div>`.repeat(3);
+        }
+        h += `<div class="px-3 py-2.5 bg-gray-50"></div>`;
+        tiers.forEach(d => h += `<div class="px-3 py-3 flex items-center justify-center gap-2 bg-gray-50">
+            <label class="inline-flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700"><input type="checkbox" data-item="${d.id}" ${pricingState.sel[d.id] ? 'checked' : ''}> ${t('pSelect')}</label></div>`);
+        h += '</div></div>';
+        return h;
+    }
+    function serviceGrid(items) {
+        return `<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">${items.map(d => `
+            <label class="card-minimal !shadow-none px-4 py-3 flex items-center gap-3 cursor-pointer hover:border-brand-500 transition">
+                <input type="checkbox" data-item="${d.id}" ${pricingState.sel[d.id] ? 'checked' : ''}>
+                <span class="text-sm text-gray-700 flex-1 leading-snug">${t(d.nk)}</span>
+                <span class="text-xs font-bold text-gray-700 bg-gray-100 rounded-md px-2 py-1 whitespace-nowrap">${fmtK(d.price)}</span>
+            </label>`).join('')}</div>`;
+    }
+    function pricingSection(icon, title, inner) {
+        return `<div class="card-minimal p-6">${widgetHeader(icon, title, '')}${inner}</div>`;
+    }
+
+    function renderPricing() {
+        let recoHtml = '';
+        if (currentPlaceDetails) {
+            const { score } = calculateScore(currentPlaceDetails, manualChecklistState);
+            const pkgId = recommendedPackage(score);
+            const pkgName = t('n_pkg') + ' ' + ITEM_INDEX[pkgId].def.tier;
+            recoHtml = `<div class="card-minimal p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 !border-brand-500 border-2">
+                <div class="w-10 h-10 rounded-lg bg-green-50 text-brand-600 border border-green-200 flex items-center justify-center shrink-0"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div class="flex-1"><p class="font-bold text-gray-900 text-sm">${t('pRecoT')}</p>
+                <p class="text-sm text-gray-500 mt-0.5">${tf('pRecoD', {score, pkg:'<strong>'+pkgName+'</strong>'})}</p></div>
+                <button id="apply-reco" data-pkg="${pkgId}" class="bg-brand-500 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-brand-600 transition shadow-sm shrink-0">${t('pRecoApply')}</button>
+            </div>`;
+        }
+        $('#pricing-view').innerHTML = `
+            ${recoHtml}
+            ${pricingSection('fa-box-open', t('pPackages'), tierTable({
+                tiers: PRICING.packages, rows: PRICING.packageRows,
+                priceOf: d => calcTerm(d.yearly, pricingState.termMain),
+                savingsOf: d => d.savY ? (pricingState.termMain === 'yearly' ? d.savY : d.savB) : 0,
+                termSelectId: 'term-main', termValue: pricingState.termMain }))}
+            <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide pt-2">${t('pIndividual')}</h2>
+            ${pricingSection('fa-brands fa-google', t('pGmf'), serviceGrid(PRICING.gmfOnetime))}
+            ${pricingSection('fa-user-gear', t('pGmfManage'), tierTable({
+                tiers: PRICING.gmfManage, rows: PRICING.gmfManageRows,
+                priceOf: d => pricingState.termManage === 'yearly' ? d.yearly : d.monthly * TERM_MULT[pricingState.termManage],
+                savingsOf: d => (d.savY && pricingState.termManage === 'yearly') ? d.savY : 0,
+                termSelectId: 'term-manage', termValue: pricingState.termManage }))}
+            ${pricingSection('fa-street-view', t('pGsv'), tierTable({ tiers: PRICING.gsv, rows: PRICING.gsvRows, priceOf: d => d.price }))}
+            ${pricingSection('fa-helicopter', t('pGsvAir'), tierTable({ tiers: PRICING.gsvAir, rows: PRICING.gsvAirRows, priceOf: d => d.price }))}
+            ${pricingSection('fa-car', t('pExtras'), serviceGrid(PRICING.extras))}
+            ${pricingSection('fa-wifi', t('pNfc'), serviceGrid(PRICING.nfc))}
+            <div id="pricing-summary"></div>`;
+        renderSummary();
+    }
+    function summaryLine(l) {
+        const payBadge = `<span class="text-[10px] font-bold uppercase tracking-wider ${l.rec ? 'bg-green-50 text-brand-600 border-green-100' : 'bg-gray-100 text-gray-500 border-gray-200'} border rounded px-1.5 py-0.5 whitespace-nowrap">${t(l.payKey)}</span>`;
+        return `<div class="flex flex-wrap items-center gap-3 py-3 border-b border-gray-50" data-line="${l.id}">
+            <button class="sum-remove w-7 h-7 rounded-lg border border-gray-200 text-gray-400 hover:text-red-600 hover:border-red-200 transition text-sm shrink-0" data-item="${l.id}">×</button>
+            <div class="flex-1 min-w-[160px]"><p class="text-sm font-medium text-gray-900">${l.name}</p>
+                <p class="mt-0.5 flex items-center gap-2 flex-wrap">${payBadge}<span id="tier-${l.id}" class="text-[11px] text-brand-600 font-medium"></span></p></div>
+            <label class="flex items-center gap-1.5 text-xs text-gray-500">${t('pQty')} <input type="number" min="1" value="${l.qty}" data-qty="${l.id}" class="num-input"></label>
+            <label class="flex items-center gap-1.5 text-xs text-gray-500">${t('pDiscount')} <input type="number" min="0" max="100" value="${l.disc}" data-disc="${l.id}" class="num-input"> %</label>
+            <div class="text-right w-28"><span id="orig-${l.id}" class="block text-xs text-gray-400 line-through"></span><span id="final-${l.id}" class="text-sm font-bold text-gray-900"></span></div>
+        </div>`;
+    }
+    function renderSummary() {
+        const box = $('#pricing-summary'); if (!box) return;
+        const tt = computeTotals();
+        if (tt.lines.length === 0) { box.innerHTML = ''; return; }
+        const recLines = tt.lines.filter(l => l.rec), oneLines = tt.lines.filter(l => !l.rec);
+        box.innerHTML = `<div class="card-minimal p-6">
+            ${widgetHeader('fa-file-invoice-dollar', t('pSummary'), '')}
+            ${recLines.length ? `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider pb-1">${t('pRecurring')}</p>${recLines.map(summaryLine).join('')}` : ''}
+            ${oneLines.length ? `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider pt-4 pb-1">${t('pOnetime')}</p>${oneLines.map(summaryLine).join('')}` : ''}
+            <div class="mt-6 pt-4 border-t-2 border-brand-500 space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-500">${t('pTotDiscount')}:</span><span id="tot-disc" class="font-semibold text-red-600"></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">${t('pTotRecurring')}:</span><span id="tot-rec" class="font-semibold text-gray-900"></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">${t('pTotOnetime')}:</span><span id="tot-one" class="font-semibold text-gray-900"></span></div>
+                <div class="flex justify-between items-baseline pt-2 border-t border-gray-100"><span class="font-bold text-gray-900">${t('pTotal')}:</span><span id="tot-grand" class="text-2xl font-extrabold text-brand-600"></span></div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="openPdfModal()" class="bg-brand-500 text-white py-2.5 px-6 rounded-lg text-sm font-bold hover:bg-brand-600 transition shadow-sm inline-flex items-center gap-2"><i class="fa-solid fa-file-pdf"></i> ${t('pGenerate')}</button>
+            </div></div>`;
+        updateLineTotals();
+    }
+    function updateLineTotals() {
+        const tt = computeTotals();
+        tt.lines.forEach(l => {
+            const o = document.getElementById('orig-'+l.id), f = document.getElementById('final-'+l.id), ti = document.getElementById('tier-'+l.id);
+            if (f) f.textContent = l.individual ? t('pIndividualVal') : fmtK(l.final);
+            if (o) o.textContent = (Math.round(l.final) !== Math.round(l.orig) && !l.individual) ? fmtK(l.orig) : '';
+            if (ti) ti.textContent = l.tierApplied ? tf('pTierInfo', {from: Math.round(l.origUnit), to: Math.round(l.effUnit)}) : '';
+        });
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('tot-disc', fmtK(tt.discount)); set('tot-rec', fmtK(tt.recurring)); set('tot-one', fmtK(tt.onetime)); set('tot-grand', fmtK(tt.grand));
+    }
+    // Delegované eventy ceníku
+    document.addEventListener('change', (e) => {
+        if (!e.target.closest('#pricing-view')) return;
+        if (e.target.matches('input[type="checkbox"][data-item]')) {
+            toggleItem(e.target.dataset.item, e.target.checked);
+            $$('#pricing-view input[type="checkbox"][data-item]').forEach(cb => cb.checked = !!pricingState.sel[cb.dataset.item]);
+            renderSummary();
+        } else if (e.target.id === 'term-main') { pricingState.termMain = e.target.value; renderPricing(); }
+        else if (e.target.id === 'term-manage') { pricingState.termManage = e.target.value; renderPricing(); }
+    });
+    document.addEventListener('input', (e) => {
+        if (!e.target.closest('#pricing-summary')) return;
+        if (e.target.dataset.qty) { pricingState.sel[e.target.dataset.qty].qty = e.target.value; updateLineTotals(); }
+        if (e.target.dataset.disc) { pricingState.sel[e.target.dataset.disc].disc = e.target.value; updateLineTotals(); }
+    });
+    document.addEventListener('click', (e) => {
+        const rm = e.target.closest('.sum-remove');
+        if (rm) { toggleItem(rm.dataset.item, false); renderPricing(); return; }
+        const reco = e.target.closest('#apply-reco');
+        if (reco) { toggleItem(reco.dataset.pkg, true); renderPricing(); showToast(t('pRecoT')); }
+    });
+
+    // ===================== PDF =====================
+    const LOGO_URL = 'https://iili.io/KnfRVlp.png';
+    function openPdfModal() {
+        const tt = computeTotals();
+        if (tt.lines.length === 0 && !currentPlaceDetails) { showToast(t('mSelectFirst')); return; }
+        if ($('#m-company') && !$('#m-company').value && currentPlaceDetails) $('#m-company').value = currentPlaceDetails.name || '';
+        $('#pdf-modal').classList.remove('hidden');
+    }
+    function closePdfModal() { $('#pdf-modal').classList.add('hidden'); }
+    $('#pdf-modal').addEventListener('click', (e) => { if (e.target.id === 'pdf-modal') closePdfModal(); });
+
+    const pdfHead = (title) => `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #16a34a;padding-bottom:16px;margin-bottom:24px;">
+        <h1 style="color:#16a34a;font-size:26px;margin:0;font-weight:800;">${title}</h1>
+        <img src="${LOGO_URL}" style="max-width:110px;height:auto;" crossorigin="anonymous"></div>`;
+    function pdfAuditPageHtml(clientName, footer) {
+        const d = currentPlaceDetails;
+        const { score, breakdown, subs } = calculateScore(d, manualChecklistState, true);
+        const color = scoreColor(score);
+        const bar = (key, s) => { const pct = s.m ? Math.round(s.g/s.m*100) : 0; return `<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;"><span style="font-weight:600;color:#374151;">${t(key)}</span><span style="color:#9ca3af;">${pct} %</span></div><div style="height:8px;background:#f3f4f6;border-radius:99px;"><div style="height:8px;width:${pct}%;background:${scoreColor(pct)};border-radius:99px;"></div></div></div>`; };
+        const earned = breakdown.filter(b => b.earned), missed = breakdown.filter(b => !b.earned);
+        const li = (items, ok) => items.map(b => `<div style="font-size:10.5px;padding:2px 0;color:${ok?'#374151':'#9ca3af'};">${ok?'<span style="color:#16a34a;">✓</span>':'<span style="color:#dc2626;">✗</span>'} ${b.text}</div>`).join('');
+        return `<div class="pdf-page">${pdfHead(t('pdfAudit'))}
+            <p style="font-size:11px;color:#9ca3af;margin:0 0 4px;">${t('pdfPreparedFor')}: <strong style="color:#374151;">${esc(clientName)}</strong> · ${new Date().toLocaleDateString('cs-CZ')}</p>
+            <h2 style="font-size:20px;font-weight:700;color:#111827;margin:8px 0 2px;">${esc(d.name)}</h2>
+            <p style="font-size:12px;color:#6b7280;margin:0 0 20px;">${esc(d.formatted_address)} · ${d.rating ? d.rating.toFixed(1)+' ★' : ''} (${d.user_ratings_total || 0} ${t('reviews')})</p>
+            <div style="display:flex;gap:32px;align-items:flex-start;margin-bottom:24px;">
+                <div style="text-align:center;flex-shrink:0;padding:18px 26px;border:1px solid #e5e7eb;border-radius:14px;">
+                    <div style="font-size:52px;font-weight:800;color:${color};line-height:1;">${score}%</div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;">${t('pdfScore')}</div>
+                </div>
+                <div style="flex:1;padding-top:4px;">${bar('ssBasic',subs.basic)}${bar('ssInfo',subs.info)}${bar('ssContent',subs.content)}${bar('ssReputation',subs.reputation)}${bar('ssEngagement',subs.engagement)}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+                <div>${li(earned, true)}</div><div>${li(missed, false)}</div>
+            </div>
+            <div class="pdf-footer">${footer}</div></div>`;
+    }
+    function pdfSolutionPageHtml(footer) {
+        const active = activeRecs();
+        const items = active.map(r => { const x = tr(r.id); return `
+            <div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;">
+                <h4 style="font-size:13px;font-weight:700;color:${r.critical?'#dc2626':'#16a34a'};margin:0 0 5px;">${x.t}</h4>
+                <p style="font-size:11px;line-height:1.55;color:#555;margin:0 0 4px;"><strong style="color:#374151;">${t('solWhy')}</strong> ${x.w}</p>
+                <p style="font-size:11px;line-height:1.55;color:#555;margin:0;"><strong style="color:#374151;">${t('solHow')}</strong> ${x.h}</p>
+            </div>`; }).join('');
+        return `<div class="pdf-page">${pdfHead(t('pdfSolution'))}${items || ''}<div class="pdf-footer">${footer}</div></div>`;
+    }
+    function pdfQuotePageHtml(info, footer) {
+        const tt = computeTotals();
+        const issue = new Date(), valid = new Date(); valid.setDate(issue.getDate() + 7);
+        const rows = tt.lines.map(l => `<tr style="font-size:11.5px;border-bottom:1px solid #eef2f3;">
+            <td style="padding:9px;font-weight:500;color:#111827;">${l.name}</td>
+            <td style="padding:9px;color:#555;">${t(l.payKey)}</td>
+            <td style="padding:9px;text-align:center;">${l.qty}</td>
+            <td style="padding:9px;text-align:right;">${l.individual ? t('pIndividualVal') : fmtK(l.orig)}</td>
+            <td style="padding:9px;text-align:center;">${l.disc}%</td>
+            <td style="padding:9px;text-align:right;font-weight:700;">${l.individual ? t('pIndividualVal') : fmtK(l.final)}</td></tr>`).join('');
+        return `<div class="pdf-page">${pdfHead(t('pdfQuote'))}
+            <div style="font-size:12px;line-height:1.6;margin-bottom:18px;">
+                <p style="margin:2px 0;"><strong>${t('pdfIssue')}:</strong> ${issue.toLocaleDateString('cs-CZ')}</p>
+                <p style="margin:2px 0;"><strong>${t('pdfValid')}:</strong> ${valid.toLocaleDateString('cs-CZ')}</p></div>
+            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:22px;font-size:12px;line-height:1.6;">
+                <div><h3 style="color:#16a34a;font-size:13px;margin:0 0 6px;font-weight:700;">${t('pdfSupplier')}:</h3>
+                    <p style="margin:0;color:#555;"><strong>STREEWVIEW CZECH s.r.o.</strong><br>Na Folimance 2155/15<br>Praha - Vinohrady, 120 00<br>IČ: 08619671<br>DIČ: CZ08619671</p></div>
+                <div><h3 style="color:#16a34a;font-size:13px;margin:0 0 6px;font-weight:700;">${t('pdfCustomer')}:</h3>
+                    <p style="margin:0;color:#555;"><strong>${esc(info.company)}</strong><br>${t('mIco')}: ${esc(info.ico)}<br>${t('mPerson')}: ${esc(info.person)}<br>Email: ${esc(info.email)}<br>${t('mPhone')}: ${esc(info.phone)}</p></div></div>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f3f4f6;">${[t('pdfDesc'),t('pdfPay'),t('pdfQty'),t('pdfBefore'),t('pdfDisc'),t('pdfAfter')].map((h,i) => `<th style="text-align:${i>=3&&i!==4?'right':(i>=2?'center':'left')};padding:9px;font-size:11px;color:#374151;font-weight:700;border-bottom:1px solid #e5e7eb;">${h}</th>`).join('')}</tr></thead>
+                <tbody>${rows}</tbody></table>
+            <div style="margin-top:22px;"><table style="width:62%;margin-left:auto;border-collapse:collapse;font-size:12px;">
+                <tr style="border-bottom:1px solid #eef2f3;"><td style="padding:8px;text-align:right;color:#dc2626;">${t('pTotDiscount')}:</td><td style="padding:8px;text-align:right;font-weight:700;color:#dc2626;">-${fmtK(tt.discount)}</td></tr>
+                <tr style="border-bottom:1px solid #eef2f3;"><td style="padding:8px;text-align:right;color:#555;">${t('pTotRecurring')}:</td><td style="padding:8px;text-align:right;font-weight:700;">${fmtK(tt.recurring)}</td></tr>
+                <tr style="border-bottom:1px solid #eef2f3;"><td style="padding:8px;text-align:right;color:#555;">${t('pTotOnetime')}:</td><td style="padding:8px;text-align:right;font-weight:700;">${fmtK(tt.onetime)}</td></tr>
+                <tr style="border-top:2px solid #16a34a;"><td style="padding:12px 8px 6px;text-align:right;font-weight:800;color:#16a34a;font-size:14px;">${t('pTotal')}:</td><td style="padding:12px 8px 6px;text-align:right;font-weight:800;color:#16a34a;font-size:14px;">${fmtK(tt.grand)}</td></tr>
+            </table></div>
+            <div class="pdf-footer">${footer}</div></div>`;
+    }
+    async function renderPdfPage(pdf, html, isFirst, btn, label) {
+        if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>${t('mGenerating')} ${label}`;
+        const host = $('#pdf-render-host');
+        host.innerHTML = html;
+        const el = host.querySelector('.pdf-page');
+        el.style.minHeight = '1123px';
+        await new Promise(r => setTimeout(r, 80));
+        const sh = el.scrollHeight;
+        el.style.height = sh + 'px';
+        const canvas = await html2canvas(el, { scale:2, useCORS:true, allowTaint:true, width: el.offsetWidth, height: sh, windowHeight: sh });
+        el.style.height = '';
+        const img = canvas.toDataURL('image/jpeg', 0.9);
+        const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+        const imgH = canvas.height * pw / canvas.width;
+        if (!isFirst) pdf.addPage();
+        pdf.addImage(img, 'JPEG', 0, 0, pw, imgH);
+        let left = imgH - ph;
+        while (left > ph * 0.05) {
+            pdf.addPage();
+            pdf.addImage(img, 'JPEG', 0, left - imgH, pw, imgH);
+            left -= ph;
+        }
+        host.innerHTML = '';
+    }
+    async function generatePdf() {
+        if (!window.jspdf || !window.html2canvas) { showToast(t('mPdfLibs')); return; }
+        const btn = $('#m-generate-btn'), origHtml = btn.innerHTML;
+        btn.disabled = true;
+        const info = { company: $('#m-company').value || '—', ico: $('#m-ico').value || '—', person: $('#m-person').value || '—', email: $('#m-email').value || '—', phone: $('#m-phone').value || '—' };
+        const onlyQuote = $('#m-only-quote').checked;
+        const tt = computeTotals();
+        try {
+            const pdf = new window.jspdf.jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+            const pages = [];
+            if (!onlyQuote && currentPlaceDetails) {
+                pages.push((f) => pdfAuditPageHtml(info.company, f));
+                pages.push((f) => pdfSolutionPageHtml(f));
+            }
+            if (tt.lines.length > 0) pages.push((f) => pdfQuotePageHtml(info, f));
+            if (pages.length === 0) { showToast(t('mSelectFirst')); btn.disabled = false; return; }
+            for (let i = 0; i < pages.length; i++) {
+                await renderPdfPage(pdf, pages[i](`${t('pdfPage')} ${i+1}/${pages.length} · viewcz.com`), i === 0, btn, `(${i+1}/${pages.length})`);
+            }
+            btn.innerHTML = `<i class="fa-solid fa-check mr-2"></i>${t('mDone')}`;
+            pdf.save(`View - ${info.company !== '—' ? info.company : (currentPlaceDetails ? currentPlaceDetails.name : 'nabidka')}.pdf`);
+            setTimeout(closePdfModal, 800);
+        } catch (err) {
+            console.error('PDF error:', err);
+            showToast(t('mPdfErr'));
+        } finally {
+            setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; applyStatic(); }, 1500);
+        }
+    }
+
+    // ===================== REFERENCES =====================
+    const CLIENTS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQKN-JqGkH2b0dqI7-gHuDggTdi76W-7g-Q4eWlN2RMHjzMpYeG-PTO0r_GiAhm-ZnAxQeuN6nAmNt8/pub?gid=0&single=true&output=csv';
+    const STATS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQKN-JqGkH2b0dqI7-gHuDggTdi76W-7g-Q4eWlN2RMHjzMpYeG-PTO0r_GiAhm-ZnAxQeuN6nAmNt8/pub?gid=1290897837&single=true&output=csv';
+    const refsState = { clients: [], stats: {}, loaded: false, loading: false, error: false, query: '', category: 'all' };
+    const SVC_ICONS = [
+        ['linktour','svc_tour','fa-street-view'], ['linkdrone','svc_drone','fa-helicopter'],
+        ['hasoptimization','svc_opt','fa-arrow-trend-up'], ['hasmanagement','svc_manage','fa-user-gear'],
+        ['linkproducts','svc_products','fa-cart-shopping'], ['linkbanners','svc_banners','fa-image'],
+        ['linkapp','svc_app','fa-mobile-screen-button'], ['linknfc','svc_nfc','fa-wifi'],
+    ];
+    function parseCSVLine(line) {
+        const out = []; let cur = '', q = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') { if (q && line[i+1] === '"') { cur += '"'; i++; } else q = !q; }
+            else if (ch === ',' && !q) { out.push(cur); cur = ''; }
+            else cur += ch;
+        }
+        out.push(cur); return out;
+    }
+    async function fetchSheet(url, isStats) {
+        const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_=' + Date.now(), { signal: AbortSignal.timeout(15000) });
+        if (!res.ok) throw new Error('Network');
+        const lines = (await res.text()).trim().split(/\r?\n/);
+        if (lines.length < 2) return isStats ? {} : [];
+        const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/\s+/g,''));
+        const data = lines.slice(1).map(l => { const v = parseCSVLine(l); const o = {}; headers.forEach((h,i) => o[h] = (v[i]||'').trim()); return o; });
+        if (isStats) return data.reduce((a,i) => { if (i.klic && i.hodnota) a[i.klic] = parseInt(i.hodnota,10)||0; return a; }, {});
+        return data.map(c => { const id = parseInt(c.id,10); if (isNaN(id)) return null; return {...c, id, name: c.name||'N/A', category: c.category||'N/A', isNew:(c.isnew||'').toLowerCase()==='true'}; }).filter(Boolean);
+    }
+    async function loadRefs(force) {
+        if (refsState.loading || (refsState.loaded && !force)) return;
+        refsState.loading = true; refsState.error = false;
+        try {
+            const [clients, stats] = await Promise.all([fetchSheet(CLIENTS_SHEET_URL,false), fetchSheet(STATS_SHEET_URL,true)]);
+            refsState.clients = clients; refsState.stats = stats; refsState.loaded = true;
+        } catch (e) { console.error(e); refsState.error = true; }
+        refsState.loading = false;
+        if (currentView === 'references') renderReferences();
+    }
+    const fmtNum = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    function refIcon(client, key, nameK, icon) {
+        let v = client[key];
+        const active = v && v.toLowerCase() !== 'false' && v.trim() !== '';
+        if (active && v && !v.startsWith('http') && v.toLowerCase() !== 'true') v = 'https://' + v;
+        const clickable = active && v && v.startsWith('http');
+        const el = `<span class="relative inline-flex" title="${t(nameK)}"><i class="fa-solid ${icon} ${active ? 'text-gray-600' : 'text-gray-300'}"></i><span class="absolute -top-1 -right-1.5 w-2 h-2 rounded-full border border-white ${active ? 'bg-brand-500' : 'bg-red-400'}"></span></span>`;
+        return clickable ? `<a href="${esc(v)}" target="_blank" class="hover:scale-110 transition-transform">${el}</a>` : el;
+    }
+    function refCard(c) {
+        const icons = SVC_ICONS.map(([k,n,i]) => refIcon(c, k, n, i)).join('');
+        return `<div class="card-minimal p-4 flex items-center gap-4 flex-wrap">
+            <div class="flex-1 min-w-[180px]">
+                <div class="flex items-center gap-2 flex-wrap"><h3 class="font-bold text-gray-900">${esc(c.name)}</h3>
+                ${c.isNew ? `<span class="px-2 py-0.5 rounded bg-green-50 text-brand-600 text-[10px] font-bold uppercase tracking-wider border border-green-100">${t('refNewBadge')}</span>` : ''}</div>
+                <p class="text-sm text-gray-500 mt-0.5">${esc(c.category)}</p>
+            </div>
+            <div class="flex items-center gap-3 text-base">${icons}</div>
+        </div>`;
+    }
+    function refFiltered() {
+        const q = refsState.query.toLowerCase();
+        return refsState.clients.filter(c => c.name.toLowerCase().includes(q) && (refsState.category === 'all' || c.category === refsState.category));
+    }
+    let refDebounce;
+    function renderReferences() {
+        const v = $('#references-view');
+        if (!refsState.loaded && !refsState.error) {
+            v.innerHTML = spinnerHtml();
+            loadRefs(false);
+            return;
+        }
+        if (refsState.error) {
+            v.innerHTML = `<div class="card-minimal p-12 text-center">
+                <div class="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-2xl mx-auto mb-4"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+                <h2 class="text-lg font-bold text-gray-900 mb-1">${t('refErr')}</h2>
+                <p class="text-sm text-gray-500 mb-5">${t('refErrD')}</p>
+                <button onclick="refsState.error=false; renderReferences();" class="bg-brand-500 text-white py-2 px-5 rounded-lg text-sm font-bold hover:bg-brand-600 transition">${t('refRefresh')}</button></div>`;
+            return;
+        }
+        const cats = [...new Set(refsState.clients.map(c => c.category))].filter(c => c && c.toLowerCase() !== 'n/a' && c.toLowerCase() !== 'nenalezeno').sort();
+        const statCard = (label, val, icon) => `<div class="card-minimal p-5 flex items-center gap-4">
+            <div class="w-10 h-10 rounded-lg border border-green-200 bg-green-50 text-brand-600 flex items-center justify-center shrink-0"><i class="fa-solid ${icon}"></i></div>
+            <div><p class="text-xs text-gray-500 uppercase tracking-wider">${label}</p><p class="text-xl font-bold text-gray-900 mt-0.5">${val}</p></div></div>`;
+        v.innerHTML = `
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <p class="text-sm text-gray-500">${t('refSub')}</p>
+                <button id="ref-refresh" class="border border-gray-300 bg-white text-gray-700 py-2 px-4 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm inline-flex items-center gap-2 self-start"><i class="fa-solid fa-rotate"></i> ${t('refRefresh')}</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                ${statCard(t('refTotal'), refsState.clients.length, 'fa-users')}
+                ${statCard(t('refNew'), refsState.clients.filter(c=>c.isNew).length, 'fa-wand-magic-sparkles')}
+                ${statCard(t('refTours'), refsState.stats.prohlidky ? fmtNum(refsState.stats.prohlidky) : 'N/A', 'fa-eye')}
+                ${statCard(t('refNews'), refsState.stats.novinky ? fmtNum(refsState.stats.novinky) : 'N/A', 'fa-newspaper')}
+            </div>
+            <div class="card-minimal p-4 flex flex-col sm:flex-row gap-3">
+                <div class="flex-1 flex items-center gap-3 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-brand-500">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400 text-sm"></i>
+                    <input type="text" id="ref-search" value="${esc(refsState.query)}" placeholder="${t('refSearch')}" class="flex-1 bg-transparent outline-none text-sm min-w-0">
+                </div>
+                <select id="ref-cat" class="border border-gray-300 bg-white rounded-lg px-3 py-2 text-sm outline-none cursor-pointer hover:border-brand-500">
+                    <option value="all">${t('refAll')}</option>${cats.map(c => `<option value="${esc(c)}" ${refsState.category===c?'selected':''}>${esc(c)}</option>`).join('')}
+                </select>
+            </div>
+            <div id="ref-list" class="space-y-3"></div>`;
+        renderRefList();
+        $('#ref-search').addEventListener('input', (e) => { refsState.query = e.target.value; clearTimeout(refDebounce); refDebounce = setTimeout(renderRefList, 250); });
+        $('#ref-cat').addEventListener('change', (e) => { refsState.category = e.target.value; renderRefList(); });
+        $('#ref-refresh').addEventListener('click', async () => { refsState.loaded = false; renderReferences(); });
+    }
+    function renderRefList() {
+        const list = $('#ref-list'); if (!list) return;
+        const items = refFiltered();
+        list.innerHTML = items.length ? items.map(refCard).join('') : `
+            <div class="card-minimal p-12 text-center"><div class="w-14 h-14 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center text-2xl mx-auto mb-4"><i class="fa-solid fa-magnifying-glass-minus"></i></div>
+            <h2 class="text-lg font-bold text-gray-900 mb-1">${t('refEmpty')}</h2><p class="text-sm text-gray-500">${t('refEmptyD')}</p></div>`;
+    }
+
+    // ===================== INIT =====================
+    applyStatic();
+    setNavState();
+    highlightNav('nav-welcome');
+    renderWelcome();
+    $('#view-title').innerText = t('tWelcome');
+    </script>
+</body>
+</html>
