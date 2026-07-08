@@ -514,7 +514,18 @@
     const RANK_COLORS = ['#16a34a', '#65a30d', '#f59e0b', '#dc2626'];
     const placeDetailsFields = ['place_id','name','formatted_address','rating','user_ratings_total','types','url','geometry','opening_hours','website','formatted_phone_number','photos','reviews','business_status','editorial_summary','wheelchair_accessible_entrance','plus_code','price_level','delivery','dine_in','takeout','curbside_pickup','reservable','serves_breakfast','serves_brunch','serves_lunch','serves_dinner','serves_beer','serves_wine','serves_vegetarian_food'];
 
-    const fmtK = (v) => new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 0 }).format(Math.round(v)) + ' Kč';
+    const CURRENCY = { cs:'CZK', sk:'EUR', en:'EUR', hu:'HUF' };
+    const curCode = () => CURRENCY[lang] || 'CZK';
+    function fmtK(v) {
+        const c = curCode();
+        if (c === 'EUR') {
+            const r = Math.round(v * 100) / 100;
+            const dec = Math.abs(r - Math.round(r)) > 0.001;
+            return new Intl.NumberFormat('sk-SK', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: 2 }).format(r) + ' €';
+        }
+        if (c === 'HUF') return new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 0 }).format(Math.round(v)) + ' Ft';
+        return new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 0 }).format(Math.round(v)) + ' Kč';
+    }
 
     // ---------- Navigation ----------
     const VIEW_TITLE_KEYS = { welcome:'tWelcome', audit:'tAudit', comparison:'tComparison', solution:'tSolution', refstep:'tRefstep', pricing:'tPricing', references:'tReferences' };
@@ -582,6 +593,7 @@
         applyStatic();
         goToView(currentView);
         updateHeaderChips();
+        if (currentView === 'pricing') renderPricing();
     }
 
     // ---------- Google Maps loader (robust) ----------
@@ -2049,12 +2061,16 @@
 
     // ===================== PRICING =====================
     const TIER_COLORS = { MINI:'#f9bc15', BASIC:'#4285f4', PROFESSIONAL:'#16a34a', INDIVIDUAL:'#ee4036', PREMIUM:'#ee4036' };
+    // Ceníky dle měny. cur() vybere podle jazyka (CZK vs EUR). HU zatím čerpá z EUR.
+    const cur = () => { const c = curCode(); return c === 'CZK' ? 'czk' : (c === 'HUF' ? 'huf' : 'eur'); };
+    const P = (czk, eur, huf) => ({ czk, eur, huf });
+    const pv = (o, key) => { const c = cur(); return (o && o[key] && typeof o[key] === 'object') ? o[key][c] : o[key]; };
     const PRICING = {
         packages: [
-            { id:'package_mini', tier:'MINI', yearly:19900, savY:2890, savB:890 },
-            { id:'package_basic', tier:'BASIC', yearly:29900, savY:7790, savB:3990 },
-            { id:'package_professional', tier:'PROFESSIONAL', yearly:39900, savY:8790, savB:3190 },
-            { id:'package_premium', tier:'INDIVIDUAL', yearly:0 },
+            { id:'package_mini', tier:'MINI', yearly:P(19900,839,319000), savY:P(2890,118,20000), savB:P(890,34,2000) },
+            { id:'package_basic', tier:'BASIC', yearly:P(29900,1269,479000), savY:P(7790,317,30000), savB:P(3990,155,3000) },
+            { id:'package_professional', tier:'PROFESSIONAL', yearly:P(39900,1689,639000), savY:P(8790,357,40000), savB:P(3190,119,4000) },
+            { id:'package_premium', tier:'INDIVIDUAL', yearly:P(0,0,0) },
         ],
         packageRows: [
             {k:'f_opt', v:['✓','✓','✓','i']}, {k:'f_manage', v:['✓','✓','✓','i']},
@@ -2064,39 +2080,39 @@
             {k:'f_360', sub:1, v:['✗','6','12','i']}, {k:'f_video', sub:1, v:['✗','2×30s','6×30s','i']},
         ],
         gmfOnetime: [
-            { id:'gmf_optimize_one', nk:'n_opt_one', price:4990 },
-            { id:'gmf_optimize_full', nk:'n_opt_full', price:2990 },
-            { id:'gmf_update', nk:'n_update', price:1990 },
+            { id:'gmf_optimize_one', nk:'n_opt_one', price:P(4990,199,79000) },
+            { id:'gmf_optimize_full', nk:'n_opt_full', price:P(2990,119,49000) },
+            { id:'gmf_update', nk:'n_update', price:P(1990,79,32000) },
         ],
         gmfManage: [
-            { id:'gmf_manage_mini', tier:'MINI', monthly:990, yearly:9900, savY:1980 },
-            { id:'gmf_manage_basic', tier:'BASIC', monthly:1090, yearly:10900, savY:2180 },
-            { id:'gmf_manage_pro', tier:'PROFESSIONAL', monthly:1190, yearly:11900, savY:2380 },
-            { id:'gmf_manage_premium', tier:'PREMIUM', monthly:0, yearly:0 },
+            { id:'gmf_manage_mini', tier:'MINI', monthly:P(990,41.9,15900), yearly:P(9900,419,159000), savY:P(1980,84,10000) },
+            { id:'gmf_manage_basic', tier:'BASIC', monthly:P(1090,45.9,17500), yearly:P(10900,459,175000), savY:P(2180,92,15000) },
+            { id:'gmf_manage_pro', tier:'PROFESSIONAL', monthly:P(1190,49.9,19100), yearly:P(11900,499,191000), savY:P(2380,100,20000) },
+            { id:'gmf_manage_premium', tier:'PREMIUM', monthly:P(0,0,0), yearly:P(0,0,0) },
         ],
         gmfManageRows: [ {k:'f_news', v:['1','4','6','i']}, {k:'f_products', v:['5','20','40','i']} ],
         gsv: [
-            { id:'gsv_mini', tier:'MINI', price:9900 }, { id:'gsv_basic', tier:'BASIC', price:14900 },
-            { id:'gsv_pro', tier:'PROFESSIONAL', price:19900 }, { id:'gsv_premium', tier:'PREMIUM', price:0 },
+            { id:'gsv_mini', tier:'MINI', price:P(9900,419,159000) }, { id:'gsv_basic', tier:'BASIC', price:P(14900,629,239000) },
+            { id:'gsv_pro', tier:'PROFESSIONAL', price:P(19900,839,319000) }, { id:'gsv_premium', tier:'PREMIUM', price:P(0,0,0) },
         ],
         gsvRows: [ {k:'f_steps', v:['2–10','11–30','31–60','i']}, {k:'f_photo', v:['3','10','20','i']} ],
         gsvAir: [
-            { id:'gsva_mini', tier:'MINI', price:5900 }, { id:'gsva_basic', tier:'BASIC', price:8900 },
-            { id:'gsva_pro', tier:'PROFESSIONAL', price:13900 }, { id:'gsva_premium', tier:'PREMIUM', price:0 },
+            { id:'gsva_mini', tier:'MINI', price:P(5900,249,99000) }, { id:'gsva_basic', tier:'BASIC', price:P(8900,379,149000) },
+            { id:'gsva_pro', tier:'PROFESSIONAL', price:P(13900,589,219000) }, { id:'gsva_premium', tier:'PREMIUM', price:P(0,0,0) },
         ],
         gsvAirRows: [ {k:'f_photo', v:['3–5','6–15','16–25','i']}, {k:'f_360', v:['2','6','12','i']}, {k:'f_video', v:['✗','2×30s','6×30s','i']} ],
         extras: [
-            { id:'gsv_car_with', nk:'n_car_with', price:5900 },
-            { id:'gsv_car_without', nk:'n_car_without', price:8900 },
+            { id:'gsv_car_with', nk:'n_car_with', price:P(5900,249,99000) },
+            { id:'gsv_car_without', nk:'n_car_without', price:P(8900,379,149000) },
         ],
         nfc: [
-            { id:'nfc_karta', nk:'n_nfc_card', price:990, tier:840 },
-            { id:'nfc_stojanek', nk:'n_nfc_stand', price:1390, tier:1190 },
-            { id:'nfc_stojanek_maly', nk:'n_nfc_stand_s', price:990, tier:840 },
-            { id:'nfc_plaketa_hranata', nk:'n_nfc_plaque_sq', price:990, tier:840 },
-            { id:'nfc_plaketa_menu', nk:'n_nfc_plaque_menu', price:990, tier:840 },
-            { id:'nfc_plaketa_kulata', nk:'n_nfc_plaque_round', price:990, tier:840 },
-            { id:'nfc_samolepka', nk:'n_sticker', price:199 },
+            { id:'nfc_karta', nk:'n_nfc_card', price:P(990,39,16000), tier:P(840,34,14000) },
+            { id:'nfc_stojanek', nk:'n_nfc_stand', price:P(1390,56,16000), tier:P(1190,48,14000) },
+            { id:'nfc_stojanek_maly', nk:'n_nfc_stand_s', price:P(990,39,16000), tier:P(840,34,14000) },
+            { id:'nfc_plaketa_hranata', nk:'n_nfc_plaque_sq', price:P(990,39,16000), tier:P(840,34,14000) },
+            { id:'nfc_plaketa_menu', nk:'n_nfc_plaque_menu', price:P(990,39,16000), tier:P(840,34,14000) },
+            { id:'nfc_plaketa_kulata', nk:'n_nfc_plaque_round', price:P(990,39,16000), tier:P(840,34,14000) },
+            { id:'nfc_samolepka', nk:'n_sticker', price:P(199,8,3200) },
         ],
     };
     const ITEM_INDEX = {};
@@ -2113,7 +2129,8 @@
     function calcTerm(yearly, term) {
         if (!yearly) return 0;
         if (term === 'yearly') return yearly;
-        return Math.round(yearly/10) * TERM_MULT[term];
+        const monthly = (curCode() === 'EUR') ? Math.round(yearly/10 * 100) / 100 : Math.round(yearly/10);
+        return monthly * TERM_MULT[term];
     }
     function itemName(id) {
         const x = ITEM_INDEX[id]; if (!x) return id;
@@ -2125,9 +2142,9 @@
     }
     function itemUnitPrice(id) {
         const x = ITEM_INDEX[id];
-        if (x.kind === 'package') return calcTerm(x.def.yearly, pricingState.termMain);
-        if (x.kind === 'manage') return pricingState.termManage === 'yearly' ? x.def.yearly : x.def.monthly * TERM_MULT[pricingState.termManage];
-        return x.def.price;
+        if (x.kind === 'package') return calcTerm(pv(x.def, 'yearly'), pricingState.termMain);
+        if (x.kind === 'manage') return pricingState.termManage === 'yearly' ? pv(x.def, 'yearly') : pv(x.def, 'monthly') * TERM_MULT[pricingState.termManage];
+        return pv(x.def, 'price');
     }
     function itemPayKey(id) {
         const x = ITEM_INDEX[id];
@@ -2149,18 +2166,18 @@
             const qty = Math.max(1, parseInt(s.qty) || 1), disc = Math.min(100, Math.max(0, parseFloat(s.disc) || 0));
             const origUnit = itemUnitPrice(id);
             let effUnit = origUnit, tierApplied = false;
-            if (x.kind === 'nfc' && x.def.tier && qty >= 5) { effUnit = x.def.tier; tierApplied = true; }
+            if (x.kind === 'nfc' && pv(x.def, 'tier') && qty >= 5) { effUnit = pv(x.def, 'tier'); tierApplied = true; }
             const orig = origUnit * qty;
             const final = effUnit * qty * (1 - disc/100);
             const rec = (x.kind === 'package' || x.kind === 'manage');
             if (rec) recurring += final; else onetime += final;
             origSum += orig; finalSum += final;
-            return { id, name: itemName(id), payKey: itemPayKey(id), qty, disc, origUnit, effUnit, orig, final, rec, tierApplied, individual: origUnit === 0 && (x.kind === 'package' || x.kind === 'manage' || x.def.price === 0) };
+            return { id, name: itemName(id), payKey: itemPayKey(id), qty, disc, origUnit, effUnit, orig, final, rec, tierApplied, individual: origUnit === 0 && (x.kind === 'package' || x.kind === 'manage' || pv(x.def, 'price') === 0) };
         });
         const mainPkg = Object.keys(pricingState.sel).find(id => ITEM_INDEX[id].kind === 'package');
-        if (mainPkg) { const d = ITEM_INDEX[mainPkg].def; if (d.savY) pkgSavings += pricingState.termMain === 'yearly' ? d.savY : d.savB; }
+        if (mainPkg) { const d = ITEM_INDEX[mainPkg].def; const sy = pv(d, 'savY'); if (sy) pkgSavings += pricingState.termMain === 'yearly' ? sy : pv(d, 'savB'); }
         const mng = Object.keys(pricingState.sel).find(id => ITEM_INDEX[id].kind === 'manage');
-        if (mng && pricingState.termManage === 'yearly') { const d = ITEM_INDEX[mng].def; if (d.savY) pkgSavings += d.savY; }
+        if (mng && pricingState.termManage === 'yearly') { const d = ITEM_INDEX[mng].def; const sy = pv(d, 'savY'); if (sy) pkgSavings += sy; }
         return { lines, recurring, onetime, grand: recurring + onetime, discount: (origSum - finalSum) + pkgSavings };
     }
 
@@ -2203,7 +2220,7 @@
             <label class="card-minimal !shadow-none px-4 py-3 flex items-center gap-3 cursor-pointer hover:border-brand-500 transition">
                 <input type="checkbox" data-item="${d.id}" ${pricingState.sel[d.id] ? 'checked' : ''}>
                 <span class="text-sm text-gray-700 flex-1 leading-snug">${t(d.nk)}</span>
-                <span class="text-xs font-bold text-gray-700 bg-gray-100 rounded-md px-2 py-1 whitespace-nowrap">${fmtK(d.price)}</span>
+                <span class="text-xs font-bold text-gray-700 bg-gray-100 rounded-md px-2 py-1 whitespace-nowrap">${fmtK(pv(d, 'price'))}</span>
             </label>`).join('')}</div>`;
     }
     function pricingSection(icon, title, inner) {
@@ -2227,18 +2244,18 @@
             ${recoHtml}
             ${pricingSection('fa-box-open', t('pPackages'), tierTable({
                 tiers: PRICING.packages, rows: PRICING.packageRows,
-                priceOf: d => calcTerm(d.yearly, pricingState.termMain),
-                savingsOf: d => d.savY ? (pricingState.termMain === 'yearly' ? d.savY : d.savB) : 0,
+                priceOf: d => calcTerm(pv(d, 'yearly'), pricingState.termMain),
+                savingsOf: d => pv(d, 'savY') ? (pricingState.termMain === 'yearly' ? pv(d, 'savY') : pv(d, 'savB')) : 0,
                 termSelectId: 'term-main', termValue: pricingState.termMain }))}
             <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide pt-2">${t('pIndividual')}</h2>
             ${pricingSection('fa-brands fa-google', t('pGmf'), serviceGrid(PRICING.gmfOnetime))}
             ${pricingSection('fa-user-gear', t('pGmfManage'), tierTable({
                 tiers: PRICING.gmfManage, rows: PRICING.gmfManageRows,
-                priceOf: d => pricingState.termManage === 'yearly' ? d.yearly : d.monthly * TERM_MULT[pricingState.termManage],
-                savingsOf: d => (d.savY && pricingState.termManage === 'yearly') ? d.savY : 0,
+                priceOf: d => pricingState.termManage === 'yearly' ? pv(d, 'yearly') : pv(d, 'monthly') * TERM_MULT[pricingState.termManage],
+                savingsOf: d => (pv(d, 'savY') && pricingState.termManage === 'yearly') ? pv(d, 'savY') : 0,
                 termSelectId: 'term-manage', termValue: pricingState.termManage }))}
-            ${pricingSection('fa-street-view', t('pGsv'), tierTable({ tiers: PRICING.gsv, rows: PRICING.gsvRows, priceOf: d => d.price }))}
-            ${pricingSection('fa-helicopter', t('pGsvAir'), tierTable({ tiers: PRICING.gsvAir, rows: PRICING.gsvAirRows, priceOf: d => d.price }))}
+            ${pricingSection('fa-street-view', t('pGsv'), tierTable({ tiers: PRICING.gsv, rows: PRICING.gsvRows, priceOf: d => pv(d, 'price') }))}
+            ${pricingSection('fa-helicopter', t('pGsvAir'), tierTable({ tiers: PRICING.gsvAir, rows: PRICING.gsvAirRows, priceOf: d => pv(d, 'price') }))}
             ${pricingSection('fa-car', t('pExtras'), serviceGrid(PRICING.extras))}
             ${pricingSection('fa-wifi', t('pNfc'), serviceGrid(PRICING.nfc))}
             <div id="pricing-summary"></div>
