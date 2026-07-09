@@ -204,7 +204,10 @@
     <div id="pdf-render-host" style="position:absolute; left:-9999px; top:0; width:950px;"></div>
 
     <!-- POZOR: API klíč omezte v Google Cloud Console na vaši doménu (HTTP referrer) + Maps JavaScript API a Places API -->
-    <script> const API_KEY = "AIzaSyAnwJg7hLl05s-usDuSvrcM3nnu90dRczI"; </script>
+    <script> const API_KEY = "AIzaSyAnwJg7hLl05s-usDuSvrcM3nnu90dRczI";
+    // Volitelný druhý klíč POUZE pro PageSpeed Insights API – BEZ omezení HTTP referreru.
+    // Když zůstane prázdný, použije se hlavní klíč a poté pokus bez klíče.
+    const PS_API_KEY = ""; </script>
     <script>
     // ===================== I18N =====================
     const I18N = {
@@ -213,7 +216,7 @@
         tWelcome:'View Sales Suite', tAudit:'Audit profilu', tComparison:'Porovnání s konkurencí', tSolution:'Návrh řešení', tPricing:'Cenová nabídka', tReferences:'Naši klienti',
         wBadge:'Audit firemního profilu Google', wTitle:'Odhalte plný potenciál firemního profilu', wSubtitle:'Hloubkový audit vizitky na Google Mapách, porovnání s konkurencí, návrh řešení a cenová nabídka – vše v jednom navazujícím procesu.', wSearchPh:'Zadejte název a adresu firmy…',
         wF1t:'Automatický audit', wF1d:'Načteme veřejná data profilu – kontakty, recenze, fotky i otevírací dobu – a spočítáme skóre.', wF2t:'Návrh řešení', wF2d:'Z nedostatků auditu sestavíme konkrétní kroky, jak klienta vystřelit nahoru.', wF3t:'Nabídka na klik', wF3d:'Z návrhu rovnou sestavíte cenovou nabídku a vygenerujete PDF pro klienta.',
-        loading:'Načítám…', missing:'Chybí', yes:'Ano', no:'Ne', auto:'auto', reviews:'recenzí',
+        loading:'Načítám…', missing:'Chybí', descApiNote:'Nelze ověřit přes API – zkontrolujte ručně na profilu', openProfile:'Otevřít profil na Google', yes:'Ano', no:'Ne', auto:'auto', reviews:'recenzí',
         showDays:'Zobrazit dny', hideDays:'Skrýt dny', showMap:'Zobrazit mapu', hideMap:'Skrýt mapu', showSV:'Zobrazit Street View', hideSV:'Skrýt Street View', svMissing:'Street View chybí', showReviews:'Zobrazit recenze', hideReviews:'Skrýt recenze',
         errLoadCompany:'Nepodařilo se načíst detaily firmy. Zkuste to prosím znovu.', errNotFound:'Firmu se nepodařilo najít. Zkuste upřesnit název a město.',
         apiAuthFail:'Google odmítl API klíč. Zkontrolujte v Google Cloud Console omezení klíče (HTTP referrery) a povolení Maps JavaScript API + Places API pro adresu, ze které aplikaci otevíráte.',
@@ -222,7 +225,7 @@
         phase1:'Fáze 1: Automatický audit', phase1sub:'Veřejná data z Google Places', phase2:'Fáze 2: Manuální audit', phase2sub:'Doplní obchodník při kontrole profilu', scoreTitle:'Skóre optimalizace', scoreSub:'Aktualizuje se podle auditu', scoreNote:'Skóre vychází z automatických dat a manuálního auditu profilu.', scoreOverview:'Přehled hodnocení', subScores:'Dílčí oblasti',
         ssBasic:'Základ', ssInfo:'Informace', ssContent:'Obsah', ssReputation:'Reputace', ssEngagement:'Aktivita',
         catCategories:'Kategorie', catContact:'Kontaktní informace', catRating:'Hodnocení', catContent:'Obsah', catOther:'Ostatní',
-        lPrimary:'Primární kategorie', lSecondary:'Sekundární kategorie', lAddress:'Adresa', lWeb:'Web', lPhone:'Telefon', lPlus:'Plus Code', lHours:'Otevírací doba', lGps:'GPS lokace', lSV:'Street View', lAvg:'Prům. hodnocení', lCount:'Počet hodnocení', lLatest:'Nejnovější recenze', lPhotos:'Počet fotek', lDesc:'Popis od vlastníka', lPriceLevel:'Cenová úroveň', lWheelchair:'Bezbariérový vchod',
+        lPrimary:'Primární kategorie', lSecondary:'Sekundární kategorie', lAddress:'Adresa', lWeb:'Web', lPhone:'Telefon', lPlus:'Plus Code', lHours:'Otevírací doba', lGps:'GPS lokace', lSV:'Street View', lAvg:'Prům. hodnocení', lCount:'Počet hodnocení', lLatest:'Nejnovější recenze', lPhotos:'Počet fotek', lDesc:'Popis od vlastníka', lDescGoogle:'Popis (Google)', lPriceLevel:'Cenová úroveň', lWheelchair:'Bezbariérový vchod',
         vVerified:'Ověřený zápis', vUnverified:'Neověřený zápis', stVisible:'Viditelné', stSuspended:'Pozastavené', stInactive:'Neaktivní', btnGoogle:'Google', btnMaps:'Mapy',
         warnT:'Kritický nedostatek: profil není ověřený', warnD:'Hrozí převzetí profilu, omezená správa, horší pozice ve vyhledávání i mapách a nižší důvěryhodnost u zákazníků.',
         g_basic:'Základní stav profilu', g_info:'Informace, konzistence a pravidla', g_content:'Kvalita obsahu', g_products:'Produkty / Služby / Rezervace', g_posts:'Reklamní novinky', g_qa:'Otázky a odpovědi (Q&A)', g_inter:'Interakce',
@@ -276,7 +279,7 @@
         tWelcome:'View Sales Suite', tAudit:'Profile audit', tComparison:'Competitor comparison', tSolution:'Solution proposal', tPricing:'Price quote', tReferences:'Our clients',
         wBadge:'Google Business Profile audit', wTitle:'Unlock the full potential of a business profile', wSubtitle:'A deep audit of the Google Maps listing, competitor comparison, solution proposal and price quote – all in one connected workflow.', wSearchPh:'Enter company name and address…',
         wF1t:'Automated audit', wF1d:'We load public profile data – contacts, reviews, photos and opening hours – and compute a score.', wF2t:'Solution proposal', wF2d:'Audit gaps become concrete steps to skyrocket the client\'s visibility.', wF3t:'Quote in one click', wF3d:'Build a price quote straight from the proposal and generate a client PDF.',
-        loading:'Loading…', missing:'Missing', yes:'Yes', no:'No', auto:'auto', reviews:'reviews',
+        loading:'Loading…', missing:'Missing', descApiNote:'Cannot be verified via API – check the profile manually', openProfile:'Open Google profile', yes:'Yes', no:'No', auto:'auto', reviews:'reviews',
         showDays:'Show days', hideDays:'Hide days', showMap:'Show map', hideMap:'Hide map', showSV:'Show Street View', hideSV:'Hide Street View', svMissing:'Street View missing', showReviews:'Show reviews', hideReviews:'Hide reviews',
         errLoadCompany:'Failed to load company details. Please try again.', errNotFound:'Company not found. Try refining the name and city.',
         apiAuthFail:'Google rejected the API key. Check key restrictions (HTTP referrers) and that Maps JavaScript API + Places API are enabled for this origin.',
@@ -285,7 +288,7 @@
         phase1:'Phase 1: Automated audit', phase1sub:'Public data from Google Places', phase2:'Phase 2: Manual audit', phase2sub:'Filled in by the sales rep', scoreTitle:'Optimization score', scoreSub:'Updates with the audit', scoreNote:'The score combines automated data with the manual profile audit.', scoreOverview:'Score breakdown', subScores:'Sub-areas',
         ssBasic:'Basics', ssInfo:'Information', ssContent:'Content', ssReputation:'Reputation', ssEngagement:'Engagement',
         catCategories:'Categories', catContact:'Contact information', catRating:'Rating', catContent:'Content', catOther:'Other',
-        lPrimary:'Primary category', lSecondary:'Secondary categories', lAddress:'Address', lWeb:'Website', lPhone:'Phone', lPlus:'Plus Code', lHours:'Opening hours', lGps:'GPS location', lSV:'Street View', lAvg:'Avg. rating', lCount:'Rating count', lLatest:'Latest reviews', lPhotos:'Photo count', lDesc:'Owner description', lPriceLevel:'Price level', lWheelchair:'Wheelchair entrance',
+        lPrimary:'Primary category', lSecondary:'Secondary categories', lAddress:'Address', lWeb:'Website', lPhone:'Phone', lPlus:'Plus Code', lHours:'Opening hours', lGps:'GPS location', lSV:'Street View', lAvg:'Avg. rating', lCount:'Rating count', lLatest:'Latest reviews', lPhotos:'Photo count', lDesc:'Owner description', lDescGoogle:'Description (Google)', lPriceLevel:'Price level', lWheelchair:'Wheelchair entrance',
         vVerified:'Verified listing', vUnverified:'Unverified listing', stVisible:'Visible', stSuspended:'Suspended', stInactive:'Inactive', btnGoogle:'Google', btnMaps:'Maps',
         warnT:'Critical issue: the profile is not verified', warnD:'Risk of profile takeover, limited management, worse ranking in Search and Maps and lower customer trust.',
         g_basic:'Profile basics', g_info:'Information, consistency & rules', g_content:'Content quality', g_products:'Products / Services / Bookings', g_posts:'Posts', g_qa:'Questions & Answers (Q&A)', g_inter:'Interaction',
@@ -339,7 +342,7 @@
         tWelcome:'View Sales Suite', tAudit:'Audit profilu', tComparison:'Porovnanie s konkurenciou', tSolution:'Návrh riešenia', tPricing:'Cenová ponuka', tReferences:'Naši klienti',
         wBadge:'Audit firemného profilu Google', wTitle:'Odhaľte plný potenciál firemného profilu', wSubtitle:'Hĺbkový audit vizitky na Google Mapách, porovnanie s konkurenciou, návrh riešenia a cenová ponuka – všetko v jednom nadväzujúcom procese.', wSearchPh:'Zadajte názov a adresu firmy…',
         wF1t:'Automatický audit', wF1d:'Načítame verejné dáta profilu – kontakty, recenzie, fotky aj otváracie hodiny – a vypočítame skóre.', wF2t:'Návrh riešenia', wF2d:'Z nedostatkov auditu zostavíme konkrétne kroky, ako klienta vystreliť nahor.', wF3t:'Ponuka na klik', wF3d:'Z návrhu rovno zostavíte cenovú ponuku a vygenerujete PDF pre klienta.',
-        loading:'Načítavam…', missing:'Chýba', yes:'Áno', no:'Nie', auto:'auto', reviews:'recenzií',
+        loading:'Načítavam…', missing:'Chýba', descApiNote:'Nedá sa overiť cez API – skontrolujte ručne na profile', openProfile:'Otvoriť profil na Google', yes:'Áno', no:'Nie', auto:'auto', reviews:'recenzií',
         showDays:'Zobraziť dni', hideDays:'Skryť dni', showMap:'Zobraziť mapu', hideMap:'Skryť mapu', showSV:'Zobraziť Street View', hideSV:'Skryť Street View', svMissing:'Street View chýba', showReviews:'Zobraziť recenzie', hideReviews:'Skryť recenzie',
         errLoadCompany:'Nepodarilo sa načítať detaily firmy. Skúste to prosím znova.', errNotFound:'Firmu sa nepodarilo nájsť. Skúste upresniť názov a mesto.',
         apiAuthFail:'Google odmietol API kľúč. Skontrolujte v Google Cloud Console obmedzenia kľúča (HTTP referrery) a povolenie Maps JavaScript API + Places API pre túto adresu.',
@@ -348,7 +351,7 @@
         phase1:'Fáza 1: Automatický audit', phase1sub:'Verejné dáta z Google Places', phase2:'Fáza 2: Manuálny audit', phase2sub:'Doplní obchodník pri kontrole profilu', scoreTitle:'Skóre optimalizácie', scoreSub:'Aktualizuje sa podľa auditu', scoreNote:'Skóre vychádza z automatických dát a manuálneho auditu profilu.', scoreOverview:'Prehľad hodnotenia', subScores:'Čiastkové oblasti',
         ssBasic:'Základ', ssInfo:'Informácie', ssContent:'Obsah', ssReputation:'Reputácia', ssEngagement:'Aktivita',
         catCategories:'Kategórie', catContact:'Kontaktné informácie', catRating:'Hodnotenie', catContent:'Obsah', catOther:'Ostatné',
-        lPrimary:'Primárna kategória', lSecondary:'Sekundárne kategórie', lAddress:'Adresa', lWeb:'Web', lPhone:'Telefón', lPlus:'Plus Code', lHours:'Otváracie hodiny', lGps:'GPS lokalita', lSV:'Street View', lAvg:'Priem. hodnotenie', lCount:'Počet hodnotení', lLatest:'Najnovšie recenzie', lPhotos:'Počet fotiek', lDesc:'Popis od vlastníka', lPriceLevel:'Cenová úroveň', lWheelchair:'Bezbariérový vchod',
+        lPrimary:'Primárna kategória', lSecondary:'Sekundárne kategórie', lAddress:'Adresa', lWeb:'Web', lPhone:'Telefón', lPlus:'Plus Code', lHours:'Otváracie hodiny', lGps:'GPS lokalita', lSV:'Street View', lAvg:'Priem. hodnotenie', lCount:'Počet hodnotení', lLatest:'Najnovšie recenzie', lPhotos:'Počet fotiek', lDesc:'Popis od vlastníka', lDescGoogle:'Popis (Google)', lPriceLevel:'Cenová úroveň', lWheelchair:'Bezbariérový vchod',
         vVerified:'Overený zápis', vUnverified:'Neoverený zápis', stVisible:'Viditeľné', stSuspended:'Pozastavené', stInactive:'Neaktívne', btnGoogle:'Google', btnMaps:'Mapy',
         warnT:'Kritický nedostatok: profil nie je overený', warnD:'Hrozí prevzatie profilu, obmedzená správa, horšia pozícia vo vyhľadávaní aj mapách a nižšia dôveryhodnosť u zákazníkov.',
         g_basic:'Základný stav profilu', g_info:'Informácie, konzistencia a pravidlá', g_content:'Kvalita obsahu', g_products:'Produkty / Služby / Rezervácie', g_posts:'Reklamné novinky', g_qa:'Otázky a odpovede (Q&A)', g_inter:'Interakcie',
@@ -402,7 +405,7 @@
         tWelcome:'View Sales Suite', tAudit:'Profil audit', tComparison:'Versenytárs-összehasonlítás', tSolution:'Megoldási javaslat', tPricing:'Árajánlat', tReferences:'Ügyfeleink',
         wBadge:'Google cégprofil audit', wTitle:'Tárja fel a cégprofil teljes potenciálját', wSubtitle:'A Google Térkép-adatlap mélyreható auditja, versenytárs-összehasonlítás, megoldási javaslat és árajánlat – egyetlen összefüggő folyamatban.', wSearchPh:'Adja meg a cég nevét és címét…',
         wF1t:'Automatikus audit', wF1d:'Betöltjük a profil nyilvános adatait – elérhetőségek, értékelések, fotók, nyitvatartás – és pontszámot számolunk.', wF2t:'Megoldási javaslat', wF2d:'Az audit hiányosságaiból konkrét lépéseket állítunk össze az ügyfél felfuttatásához.', wF3t:'Ajánlat egy kattintással', wF3d:'A javaslatból azonnal árajánlatot állíthat össze és PDF-et generálhat az ügyfélnek.',
-        loading:'Betöltés…', missing:'Hiányzik', yes:'Igen', no:'Nem', auto:'auto', reviews:'értékelés',
+        loading:'Betöltés…', missing:'Hiányzik', descApiNote:'API-n keresztül nem ellenőrizhető – ellenőrizze kézzel a profilon', openProfile:'Profil megnyitása a Google-ban', yes:'Igen', no:'Nem', auto:'auto', reviews:'értékelés',
         showDays:'Napok megjelenítése', hideDays:'Napok elrejtése', showMap:'Térkép megjelenítése', hideMap:'Térkép elrejtése', showSV:'Street View megjelenítése', hideSV:'Street View elrejtése', svMissing:'Street View hiányzik', showReviews:'Értékelések megjelenítése', hideReviews:'Értékelések elrejtése',
         errLoadCompany:'Nem sikerült betölteni a cég adatait. Kérjük, próbálja újra.', errNotFound:'A cég nem található. Pontosítsa a nevet és a várost.',
         apiAuthFail:'A Google elutasította az API-kulcsot. Ellenőrizze a kulcs korlátozásait (HTTP referrer) és a Maps JavaScript API + Places API engedélyezését ehhez a címhez.',
@@ -411,7 +414,7 @@
         phase1:'1. fázis: Automatikus audit', phase1sub:'Nyilvános adatok a Google Places-ből', phase2:'2. fázis: Manuális audit', phase2sub:'Az értékesítő tölti ki az ellenőrzéskor', scoreTitle:'Optimalizálási pontszám', scoreSub:'Az audit alapján frissül', scoreNote:'A pontszám az automatikus adatokból és a manuális auditból áll össze.', scoreOverview:'Értékelés áttekintése', subScores:'Részterületek',
         ssBasic:'Alapok', ssInfo:'Információk', ssContent:'Tartalom', ssReputation:'Hírnév', ssEngagement:'Aktivitás',
         catCategories:'Kategóriák', catContact:'Elérhetőségek', catRating:'Értékelés', catContent:'Tartalom', catOther:'Egyéb',
-        lPrimary:'Elsődleges kategória', lSecondary:'Másodlagos kategóriák', lAddress:'Cím', lWeb:'Weboldal', lPhone:'Telefon', lPlus:'Plus Code', lHours:'Nyitvatartás', lGps:'GPS helyzet', lSV:'Street View', lAvg:'Átl. értékelés', lCount:'Értékelések száma', lLatest:'Legújabb értékelések', lPhotos:'Fotók száma', lDesc:'Tulajdonosi leírás', lPriceLevel:'Árszint', lWheelchair:'Akadálymentes bejárat',
+        lPrimary:'Elsődleges kategória', lSecondary:'Másodlagos kategóriák', lAddress:'Cím', lWeb:'Weboldal', lPhone:'Telefon', lPlus:'Plus Code', lHours:'Nyitvatartás', lGps:'GPS helyzet', lSV:'Street View', lAvg:'Átl. értékelés', lCount:'Értékelések száma', lLatest:'Legújabb értékelések', lPhotos:'Fotók száma', lDesc:'Tulajdonosi leírás', lDescGoogle:'Leírás (Google)', lPriceLevel:'Árszint', lWheelchair:'Akadálymentes bejárat',
         vVerified:'Igazolt adatlap', vUnverified:'Nem igazolt adatlap', stVisible:'Látható', stSuspended:'Felfüggesztve', stInactive:'Inaktív', btnGoogle:'Google', btnMaps:'Térkép',
         warnT:'Kritikus hiányosság: a profil nincs igazolva', warnD:'Fennáll a profil átvételének kockázata, korlátozott a kezelés, rosszabb a pozíció a keresésben és a térképen, alacsonyabb az ügyfélbizalom.',
         g_basic:'A profil alapállapota', g_info:'Információk, konzisztencia és szabályok', g_content:'Tartalom minősége', g_products:'Termékek / Szolgáltatások / Foglalások', g_posts:'Bejegyzések', g_qa:'Kérdések és válaszok (Q&A)', g_inter:'Interakciók',
@@ -777,7 +780,6 @@
             'check-phone': !!d.formatted_phone_number,
             'check-hours': !!d.opening_hours,
             'check-photos10': !!(d.photos && d.photos.length >= 10),
-            'check-desc': !!(d.editorial_summary && d.editorial_summary.overview),
             'check-attrs': ATTR_KEYS.some(k => d[k] === true) || d.wheelchair_accessible_entrance === true || plusAny(d),
             'check-services': d.reservable === true,
         };
@@ -821,7 +823,7 @@
 
     function startAnalysisFlow(placeId) {
         if (!placeId || !placesService) return;
-        competitors = []; competitorsLoaded = false; manualChecklistState = {}; competitorsState = {}; competitorCandidates = []; manualTouched = false; selectedRefs = []; geogridState = { key:null, results:null, running:false }; psState = { running:false, loaded:false, err:false, data:null, errKind:'generic' };
+        competitors = []; competitorsLoaded = false; manualChecklistState = {}; competitorsState = {}; competitorCandidates = []; manualTouched = false; selectedRefs = []; geogridState = { key:null, results:null, running:false }; psState = { running:false, loaded:false, err:false, data:null, errKind:'generic', autoTried:false };
         currentView = 'audit';
         stopWelcomeNet();
         ['welcome','comparison','solution','refstep','pricing','references'].forEach(k => $('#'+k+'-view').classList.add('hidden'));
@@ -898,6 +900,7 @@
         renderReviewIntel(d);
         renderGeogridWidget(d);
         renderPageSpeed(d);
+        if (d.website && !psState.loaded && !psState.running && !psState.autoTried) { psState.autoTried = true; psRun(); }
         updateVerificationStatus();
         recalcScoreUI();
     }
@@ -1016,7 +1019,7 @@
             <div id="rev-panel" class="collapse-panel"><div id="rev-list" class="py-3 space-y-3"></div></div>
             ${sectionLabel(t('catContent'))}
             ${detailRow(t('lPhotos'), fmtPhotos(d.photos))}
-            ${detailRow(t('lDesc'), getData(d.editorial_summary && d.editorial_summary.overview))}
+            ${detailRow((d.editorial_summary && d.editorial_summary.overview) ? t('lDescGoogle') : t('lDesc'), (d.editorial_summary && d.editorial_summary.overview) ? esc(d.editorial_summary.overview) : `<span class="text-amber-600 italic">${t('descApiNote')}</span>`)}
             ${sectionLabel(t('catOther'))}
             ${detailRow(t('lPriceLevel'), getData(d.price_level, fmtPrice))}
             ${detailRow(t('lWheelchair'), getData(d.wheelchair_accessible_entrance))}
@@ -1090,7 +1093,10 @@
             if (it.type === 'select') { if (!('review-reply-btn' in manualChecklistState)) manualChecklistState['review-reply-btn'] = '0'; }
             else if (!(it.id in manualChecklistState)) manualChecklistState[it.id] = !!auto[it.id];
         }));
-        let html = widgetHeader('fa-user-check', t('phase2'), t('phase2sub')) + '<div id="manual-checklist" class="space-y-5">';
+        const profileUrl = d.url || (d.place_id ? ('https://www.google.com/maps/place/?q=place_id:' + encodeURIComponent(d.place_id)) : null);
+        let html = widgetHeader('fa-user-check', t('phase2'), t('phase2sub'))
+            + (profileUrl ? `<a href="${profileUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 mb-4 px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-brand-700 text-xs font-semibold hover:bg-green-100 transition-colors"><i class="fa-solid fa-arrow-up-right-from-square"></i>${t('openProfile')}</a>` : '')
+            + '<div id="manual-checklist" class="space-y-5">';
         CHECKLIST.forEach(g => {
             html += `<div><p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2"><i class="fa-solid ${g.icon} text-brand-500"></i> ${t(g.gk)}</p><div class="space-y-0.5">`;
             g.items.forEach(it => {
@@ -1279,17 +1285,23 @@
             if (lr.runtimeError && lr.runtimeError.code && lr.runtimeError.code !== 'NO_ERROR') throw new Error(lr.runtimeError.message || lr.runtimeError.code);
             return j;
         };
-        const withKey = base + '&key=' + EFFECTIVE_API_KEY;
+        const PS_KEY_OVERRIDE = (() => { try { return new URLSearchParams(location.hash.replace(/^#/, '')).get('pskey'); } catch (e) { return null; } })();
+        const psKey = (PS_KEY_OVERRIDE && PS_KEY_OVERRIDE.trim()) || (typeof PS_API_KEY !== 'undefined' && PS_API_KEY) || '';
+        // Pořadí pokusů: 1) samostatný PageSpeed klíč (pokud je), 2) hlavní klíč, 3) bez klíče, 4) opakování prvního po pauze
+        const urls = [];
+        if (psKey) urls.push(base + '&key=' + psKey);
+        urls.push(base + '&key=' + EFFECTIVE_API_KEY);
+        urls.push(base);
         try {
-            let j;
-            try { j = await attempt(withKey); }          // primárně s klíčem (vysoká kvóta)
-            catch (e1) {
-                try { j = await attempt(base); }         // fallback bez klíče
-                catch (e2) {
-                    await new Promise(r => setTimeout(r, 3000));
-                    try { j = await attempt(withKey); }  // poslední pokus opět s klíčem
-                    catch (e3) { throw e1; }              // nahoru pošleme chybu s klíčem (nejrelevantnější)
-                }
+            let j = null, firstErr = null;
+            for (const u of urls) {
+                try { j = await attempt(u); break; }
+                catch (e) { if (!firstErr) firstErr = e; }
+            }
+            if (!j) {
+                await new Promise(r => setTimeout(r, 3000));
+                try { j = await attempt(urls[0]); }
+                catch (e) { throw firstErr; }
             }
             const lr = j.lighthouseResult || {};
             psState.data = {
