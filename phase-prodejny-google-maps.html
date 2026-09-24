@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prodejny Phase – vyhledávač nejbližší prodejny (ostrá verze s Google Maps)</title>
+<!--
+  OSTRÁ VERZE PRO WEB – co je potřeba:
+  1. V Google Cloud Console založit projekt, zapnout: Maps JavaScript API, Places API, Distance Matrix API.
+  2. Vytvořit API klíč, omezit ho na doménu pohodliphase.cz (HTTP referrer).
+  3. Klíč vložit níže místo AIzaSyAnwJg7hLl05s-usDuSvrcM3nnu90dRczI.
+  4. V poli STORES doplnit přesné adresy + GPS (převzít z Google firemních profilů) a případně placeId každé prodejny.
+  5. Celý blok <section class="phase-locator"> + <script> vložit na stránku Prodejny / Kontakt.
+-->
+<style>
+.phase-locator{font-family:inherit;display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:32px;max-width:1200px;margin:0 auto}
+@media (max-width:900px){.phase-locator{grid-template-columns:1fr}}
+.phase-locator label{display:block;font-size:15px;margin-bottom:8px}
+.phase-locator .field{display:flex;border:1px solid #393436;background:#fff}
+.phase-locator .field input{flex:1;border:0;outline:0;padding:14px 16px;font:inherit;font-size:17px;min-width:0}
+.phase-locator .field button{border:0;background:#393436;color:#fff;font:inherit;padding:0 20px;cursor:pointer}
+.phase-locator .locate{margin-top:10px;background:none;border:0;padding:0;font:inherit;font-size:14px;color:#2f5d5a;cursor:pointer;text-decoration:underline}
+.phase-locator #pl-map{width:100%;height:520px;background:#f3efe9;border:1px solid #e4e0da}
+.phase-locator .msg{font-size:22px;line-height:1.3;margin:28px 0 16px}
+.phase-locator .store{border:1px solid #e4e0da;padding:18px 20px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:8px 16px}
+.phase-locator .store.best{border-color:#2f5d5a;background:#e3ecea}
+.phase-locator .store h3{margin:0;font-size:20px}
+.phase-locator .store p{margin:2px 0 0;font-size:15px;color:#6b6562}
+.phase-locator .dist{font-size:15px;white-space:nowrap;text-align:right}
+.phase-locator .dist small{display:block;color:#6b6562;font-size:12px}
+.phase-locator .acts{grid-column:1/-1;display:flex;gap:18px;font-size:14px}
+.pac-container{font-family:inherit;z-index:10000}
+</style>
+</head>
+<body>
+
+<section class="phase-locator">
+  <div>
+    <label for="pl-q">Vaše město nebo adresa</label>
+    <div class="field">
+      <input id="pl-q" type="text" placeholder="např. Beroun" autocomplete="off">
+      <button id="pl-go" type="button">Najít</button>
+    </div>
+    <button class="locate" id="pl-locate" type="button">Použít moji aktuální polohu</button>
+    <div id="pl-results"><p class="msg">Zadejte město a ukážeme vám nejbližší prodejnu Phase.</p></div>
+  </div>
+  <div id="pl-map"></div>
+</section>
+
+<script>
+// ---- Prodejny: doplnit přesné adresy a GPS z Google firemních profilů ----
+const STORES = [
+ {n:"Praha Zličín – HOMEPARK",    a:"Skandinávská 15a, 155 21 Praha 5",      lat:50.0530, lng:14.2880, url:"https://pohodliphase.cz/prodejny/praha-zlicin-homepark"},
+ {n:"Praha Čestlice",             a:"Čestlice",                              lat:49.9960, lng:14.5850, url:"https://pohodliphase.cz/prodejny/praha-cestlice"},
+ {n:"Praha Černý Most",           a:"Skorkovská 2457, 198 00 Praha 9",       lat:50.1060, lng:14.5880, url:"https://pohodliphase.cz/prodejny/praha-cerny-most-2"},
+ {n:"Praha Butovice",             a:"Radlická 520/117, 158 00 Praha 5",      lat:50.0540, lng:14.3670, url:"https://pohodliphase.cz/prodejny/praha-butovice"},
+ {n:"Plzeň",                      a:"Plzeň",                                 lat:49.7475, lng:13.3776, url:"https://pohodliphase.cz/prodejny/plzen"},
+ {n:"České Budějovice",           a:"České Budějovice",                      lat:48.9745, lng:14.4743, url:"https://pohodliphase.cz/prodejny/ceske-budejovice"},
+ {n:"Liberec",                    a:"Liberec",                               lat:50.7663, lng:15.0543, url:"https://pohodliphase.cz/prodejny/liberec"},
+ {n:"Hradec Králové",             a:"Hradec Králové",                        lat:50.2092, lng:15.8328, url:"https://pohodliphase.cz/prodejny/hradec-kralove"},
+ {n:"Most",                       a:"Most",                                  lat:50.5030, lng:13.6362, url:"https://pohodliphase.cz/prodejny/most"},
+ {n:"Jihlava – AVENTIN",          a:"Jihlava",                               lat:49.4130, lng:15.5900, url:"https://pohodliphase.cz/prodejny/jihlava-aventin"},
+ {n:"Brno – AVION Shopping Park", a:"Skandinávská 2, 619 00 Brno",           lat:49.1440, lng:16.6220, url:"https://pohodliphase.cz/prodejny/brno-avion"},
+ {n:"Brno – OC SOHO",             a:"Brno",                                  lat:49.1670, lng:16.5980, url:"https://pohodliphase.cz/prodejny/brno-oc-soho"},
+ {n:"Olomouc",                    a:"Olomouc",                               lat:49.5938, lng:17.2509, url:"https://pohodliphase.cz/prodejny/olomouc"},
+ {n:"Zlín",                       a:"Zlín",                                  lat:49.2265, lng:17.6667, url:"https://pohodliphase.cz/prodejny/zlin"},
+ {n:"Ostrava",                    a:"Místecká / Krmelínská 2, 720 00 Ostrava",lat:49.7860, lng:18.2600, url:"https://pohodliphase.cz/prodejny/ostrava"},
+ {n:"Bratislava – pri Avione",    a:"Ivanská cesta, Bratislava",             lat:48.1690, lng:17.1780, url:"https://pohodliphase.cz/prodejny/bratislava-pri-avione"},
+ {n:"Bratislava – Bory Mall",     a:"Lamač, Bratislava",                     lat:48.2080, lng:17.0300, url:"https://pohodliphase.cz/prodejny/bratislava-bory-mall"},
+ {n:"Trnava",                     a:"Trnava",                                lat:48.3774, lng:17.5872, url:"https://pohodliphase.cz/prodejny/trnava"},
+ {n:"Nitra",                      a:"Nitra",                                 lat:48.3069, lng:18.0864, url:"https://pohodliphase.cz/prodejny/nitra"},
+ {n:"Trenčín",                    a:"Trenčín",                               lat:48.8945, lng:18.0444, url:"https://pohodliphase.cz/prodejny/trencin"},
+ {n:"Žilina",                     a:"Žilina",                                lat:49.2231, lng:18.7394, url:"https://pohodliphase.cz/prodejny/zilina"},
+ {n:"Banská Bystrica",            a:"Banská Bystrica",                       lat:48.7363, lng:19.1462, url:"https://pohodliphase.cz/prodejny/banska-bystrica"},
+ {n:"Košice",                     a:"Košice",                                lat:48.7164, lng:21.2611, url:"https://pohodliphase.cz/prodejny/kosice"},
+ {n:"Prešov",                     a:"Prešov",                                lat:48.9986, lng:21.2394, url:"https://pohodliphase.cz/prodejny/presov"},
+];
+
+let map, markers=[], youMarker=null, infoWin;
+
+function km(a,b){const R=6371,r=Math.PI/180;const dLat=(b.lat-a.lat)*r,dLng=(b.lng-a.lng)*r;const h=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+const navUrl=s=>"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.lat+","+s.lng);
+
+function initMap(){
+  map=new google.maps.Map(document.getElementById("pl-map"),{
+    center:{lat:49.4,lng:17.2}, zoom:6, mapTypeControl:false, streetViewControl:false,
+    styles:[{featureType:"poi",stylers:[{visibility:"off"}]}]
+  });
+  infoWin=new google.maps.InfoWindow();
+  STORES.forEach((s,i)=>{
+    const m=new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,title:s.n});
+    m.addListener("click",()=>{infoWin.setContent(`<strong>${s.n}</strong><br>${s.a}<br><a href="${navUrl(s)}" target="_blank" rel="noopener">Navigovat</a> · <a href="${s.url}">Detail prodejny</a>`);infoWin.open(map,m);});
+    markers.push(m);
+  });
+
+  // našeptávač Google Places – jen ČR a SR
+  const input=document.getElementById("pl-q");
+  const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:["cz","sk"]},fields:["geometry","name","formatted_address"]});
+  ac.addListener("place_changed",()=>{
+    const p=ac.getPlace(); if(!p.geometry) return;
+    find({name:p.name||p.formatted_address,lat:p.geometry.location.lat(),lng:p.geometry.location.lng()});
+  });
+  document.getElementById("pl-go").addEventListener("click",()=>{
+    // pokud uživatel nevybral z našeptávače, geokódujeme text
+    new google.maps.Geocoder().geocode({address:input.value,region:"cz"},(res,st)=>{
+      if(st==="OK"&&res[0]) find({name:input.value,lat:res[0].geometry.location.lat(),lng:res[0].geometry.location.lng()});
+    });
+  });
+  document.getElementById("pl-locate").addEventListener("click",()=>{
+    navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>find({name:"Vaše poloha",lat:p.coords.latitude,lng:p.coords.longitude}));
+  });
+}
+
+function find(place){
+  const ranked=STORES.map((s,i)=>({...s,i,d:km(place,s)})).sort((a,b)=>a.d-b.d).slice(0,3);
+  // zvýraznění na mapě
+  markers.forEach((m,i)=>m.setOpacity(i===ranked[0].i?1:0.45));
+  if(youMarker) youMarker.setMap(null);
+  youMarker=new google.maps.Marker({position:{lat:place.lat,lng:place.lng},map,title:place.name,
+    icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#2f5d5a",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});
+  const b=new google.maps.LatLngBounds(); b.extend(youMarker.getPosition()); b.extend(markers[ranked[0].i].getPosition()); map.fitBounds(b,80);
+
+  // skutečný dojezd autem (Distance Matrix) pro 3 nejbližší
+  new google.maps.DistanceMatrixService().getDistanceMatrix({
+    origins:[{lat:place.lat,lng:place.lng}],
+    destinations:ranked.map(s=>({lat:s.lat,lng:s.lng})),
+    travelMode:"DRIVING"
+  },(res,st)=>{
+    const rows=(st==="OK"&&res.rows[0].elements)||[];
+    ranked.forEach((s,k)=>{const e=rows[k]; if(e&&e.status==="OK"){s.drive=e.distance.text; s.time=e.duration.text;}});
+    render(place,ranked);
+  });
+}
+
+function render(place,ranked){
+  const best=ranked[0];
+  const head=best.d<9?`Prodejnu máme přímo u vás: <strong>${best.n}</strong>.`:`V místě <strong>${place.name}</strong> prodejnu nemáme – nejblíž je <strong>${best.n}</strong>${best.time?` (${best.time} autem)`:""}.`;
+  document.getElementById("pl-results").innerHTML=`<p class="msg">${head}</p>`+ranked.map((s,k)=>`
+    <div class="store ${k===0?"best":""}">
+      <div><h3>${s.n}</h3><p>${s.a}</p></div>
+      <div class="dist">${s.drive||Math.round(s.d)+" km"}<small>${s.time?s.time+" autem":"vzdušnou čarou"}</small></div>
+      <div class="acts"><a href="${navUrl(s)}" target="_blank" rel="noopener">Navigovat</a><a href="${s.url}">Detail prodejny</a></div>
+    </div>`).join("");
+}
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAnwJg7hLl05s-usDuSvrcM3nnu90dRczI&libraries=places&callback=initMap&language=cs&region=CZ"></script>
+</body>
+</html>
