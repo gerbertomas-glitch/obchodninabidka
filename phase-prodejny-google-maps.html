@@ -2,146 +2,291 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prodejny Phase – vyhledávač nejbližší prodejny (ostrá verze s Google Maps)</title>
-<!--
-  OSTRÁ VERZE PRO WEB – co je potřeba:
-  1. V Google Cloud Console založit projekt, zapnout: Maps JavaScript API, Places API, Distance Matrix API.
-  2. Vytvořit API klíč, omezit ho na doménu pohodliphase.cz (HTTP referrer).
-  3. Klíč vložit níže místo AIzaSyAnwJg7hLl05s-usDuSvrcM3nnu90dRczI.
-  4. V poli STORES doplnit přesné adresy + GPS (převzít z Google firemních profilů) a případně placeId každé prodejny.
-  5. Celý blok <section class="phase-locator"> + <script> vložit na stránku Prodejny / Kontakt.
--->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prodejny – Phase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-.phase-locator{font-family:inherit;display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:32px;max-width:1200px;margin:0 auto}
-@media (max-width:900px){.phase-locator{grid-template-columns:1fr}}
-.phase-locator label{display:block;font-size:15px;margin-bottom:8px}
-.phase-locator .field{display:flex;border:1px solid #393436;background:#fff}
-.phase-locator .field input{flex:1;border:0;outline:0;padding:14px 16px;font:inherit;font-size:17px;min-width:0}
-.phase-locator .field button{border:0;background:#393436;color:#fff;font:inherit;padding:0 20px;cursor:pointer}
-.phase-locator .locate{margin-top:10px;background:none;border:0;padding:0;font:inherit;font-size:14px;color:#2f5d5a;cursor:pointer;text-decoration:underline}
-.phase-locator #pl-map{width:100%;height:520px;background:#f3efe9;border:1px solid #e4e0da}
-.phase-locator .msg{font-size:22px;line-height:1.3;margin:28px 0 16px}
-.phase-locator .store{border:1px solid #e4e0da;padding:18px 20px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:8px 16px}
-.phase-locator .store.best{border-color:#2f5d5a;background:#e3ecea}
-.phase-locator .store h3{margin:0;font-size:20px}
-.phase-locator .store p{margin:2px 0 0;font-size:15px;color:#6b6562}
-.phase-locator .dist{font-size:15px;white-space:nowrap;text-align:right}
-.phase-locator .dist small{display:block;color:#6b6562;font-size:12px}
-.phase-locator .acts{grid-column:1/-1;display:flex;gap:18px;font-size:14px}
-.pac-container{font-family:inherit;z-index:10000}
+:root{
+  --paper:#ffffff; --ink:#393436; --ink-soft:#6b6562; --line:#e4e0da; --sand:#f3efe9; --sand-deep:#e6e0d7;
+  --accent:#2f5d5a; --accent-soft:#e3ecea;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#ffffff; } }
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Jost",system-ui,sans-serif;font-weight:300;font-size:17px;line-height:1.55}
+a{color:inherit}
+img{max-width:100%}
+h1,h2,h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;margin:0;line-height:1.1}
+
+/* demo banner */
+.demo{background:var(--ink);color:#fff;font-size:13px;padding:8px 20px;text-align:center;font-weight:400}
+.demo strong{font-weight:500}
+
+/* header */
+header{border-bottom:1px solid var(--line)}
+.nav{max-width:1200px;margin:0 auto;padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.logo{font-family:"Cormorant Garamond",serif;font-size:34px;letter-spacing:.14em;font-weight:500;text-transform:lowercase;text-decoration:none}
+.nav ul{list-style:none;margin:0;padding:0;display:flex;gap:28px;font-size:15px;font-weight:400}
+.nav ul a{text-decoration:none;color:var(--ink-soft)}
+.nav ul a.on{color:var(--ink);border-bottom:1px solid var(--ink)}
+@media (max-width:760px){.nav ul{display:none}}
+
+main{max-width:1200px;margin:0 auto;padding:48px 24px 80px}
+.intro{max-width:640px;margin-bottom:40px}
+.intro h1{font-size:56px}
+.intro p{font-size:18px;color:var(--ink-soft);margin:14px 0 0}
+
+/* finder */
+.finder{display:grid;grid-template-columns:minmax(300px,420px) 1fr;grid-template-areas:"search map" "results map";grid-template-rows:auto 1fr;gap:0 32px;align-items:start}
+.search{grid-area:search}.results{grid-area:results}.mapwrap{grid-area:map}
+@media (max-width:900px){.finder{grid-template-columns:1fr;grid-template-areas:"search" "map" "results";gap:20px 0}.results{margin-top:0}}
+
+.search{position:relative}
+.search label{display:block;font-size:15px;font-weight:400;margin-bottom:8px}
+.field{display:flex;border:1px solid var(--ink);background:#fff}
+.field input{flex:1;border:0;outline:0;padding:14px 16px;font:inherit;font-size:17px;background:transparent;color:var(--ink);min-width:0}
+.field input:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.field button{border:0;background:var(--ink);color:#fff;font:inherit;font-weight:400;padding:0 20px;cursor:pointer}
+.field button:hover{background:#222}
+.locate{margin-top:10px;background:none;border:0;padding:0;font:inherit;font-size:14px;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.sugg{position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--line);border-top:0;z-index:5;max-height:260px;overflow:auto;display:none;box-shadow:0 12px 30px rgba(57,52,54,.12)}
+.sugg.open{display:block}
+.sugg div{padding:10px 16px;cursor:pointer;font-size:15px}
+.sugg div span{color:var(--ink-soft);font-size:13px;margin-left:6px}
+.sugg div:hover,.sugg div.hl{background:var(--sand)}
+
+.results{margin-top:28px}
+.msg{font-family:"Cormorant Garamond",serif;font-size:24px;line-height:1.25;margin:0 0 16px}
+.msg em{font-style:italic}
+.store{border:1px solid var(--line);padding:18px 20px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:start;background:#fff}
+.store.best{border-color:var(--accent);background:var(--accent-soft)}
+.store h3{font-size:22px}
+.store .addr{font-size:15px;color:var(--ink-soft);margin:2px 0 0}
+.store .dist{font-size:15px;font-weight:400;white-space:nowrap;text-align:right}
+.store .dist small{display:block;font-weight:300;color:var(--ink-soft);font-size:12px}
+.store .acts{grid-column:1/-1;display:flex;gap:18px;font-size:14px;font-weight:400;margin-top:4px}
+.store .acts a{text-decoration:underline;text-underline-offset:3px}
+.hint{font-size:13px;color:var(--ink-soft);margin-top:14px}
+
+/* map */
+.mapwrap{background:#e9e4dc;border:1px solid var(--line);position:relative;overflow:hidden}
+.mapwrap svg{display:block;width:100%;height:auto}
+@media (max-width:900px){.mapwrap svg{height:340px}}
+.zoomout{display:none;position:absolute;right:14px;top:12px;background:#fff;border:1px solid var(--ink);font:inherit;font-size:13px;padding:6px 12px;cursor:pointer}
+.mapwrap svg{transition:none}
+.mapnote{position:absolute;left:14px;bottom:12px;font-size:12px;color:var(--ink-soft);background:rgba(255,255,255,.85);padding:4px 8px}
+@media (max-width:900px){.mapnote{position:static;background:none;padding:6px 10px;font-size:11px}}
+.land{fill:#fbfaf7;stroke:#a9a197;stroke-width:calc(1.4px*var(--k));stroke-linejoin:round}
+#map{--k:1}
+.country{font-family:"Cormorant Garamond",serif;font-size:calc(26px*var(--k));fill:#8c8681;letter-spacing:.06em;opacity:.55}
+.neigh{font-family:"Jost",sans-serif;font-size:calc(13px*var(--k));fill:#9a938b;letter-spacing:.12em;text-transform:uppercase}
+.pinring{fill:#fff;stroke:var(--ink);stroke-width:calc(1.5px*var(--k));r:calc(7px*var(--k))}
+.pinring.best{stroke:var(--accent);stroke-width:calc(2px*var(--k));r:calc(9px*var(--k))}
+.pinring.dim{stroke:#b9b2aa}
+.pin{fill:var(--ink);r:calc(3.5px*var(--k))}
+.pin.best{fill:var(--accent);r:calc(5px*var(--k))}
+.pin.dim{fill:#b9b2aa}
+.pinlabel{font-family:"Jost",sans-serif;font-size:calc(11px*var(--k));fill:var(--ink-soft);pointer-events:none}
+.pinlabel.best{fill:var(--accent);font-weight:500;font-size:calc(12px*var(--k))}
+.pinlabel.cluster.zoomed{display:none}
+.you{fill:none;stroke:var(--accent);stroke-width:calc(2px*var(--k));r:calc(11px*var(--k))}
+.youdot{fill:var(--accent);r:calc(4px*var(--k))}
+.youlabel{font-family:"Jost",sans-serif;font-size:calc(12px*var(--k));font-weight:500;fill:var(--accent)}
+.link{stroke:var(--accent);stroke-width:calc(1.5px*var(--k));stroke-dasharray:4 4;fill:none}
+.linklabel{font-family:"Jost",sans-serif;font-size:calc(12px*var(--k));fill:var(--accent);font-weight:500}
+
+/* list */
+.all{margin-top:72px;border-top:1px solid var(--line);padding-top:40px}
+.all h2{font-size:38px;margin-bottom:24px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.cols h3{font-size:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.cols ul{list-style:none;margin:0;padding:0}
+.cols li{padding:9px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;font-size:15px}
+.cols li button{background:none;border:0;padding:0;font:inherit;font-size:14px;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.cols li b{font-weight:400}
+.cols li span{color:var(--ink-soft)}
+
+footer{border-top:1px solid var(--line);padding:28px 24px;font-size:13px;color:var(--ink-soft);text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+#gmap{width:100%;height:560px;background:var(--sand)}
+@media (max-width:900px){#gmap{height:380px}}
+.pac-container{font-family:"Jost",sans-serif;border:1px solid var(--line);border-radius:0;box-shadow:0 12px 30px rgba(57,52,54,.12);margin-top:2px}
+.pac-item{padding:8px 12px;font-size:14px;border-top:1px solid var(--line);cursor:pointer}
+.pac-item-query{font-size:15px}
+.pac-logo:after{display:none}
+.gm-style .gm-style-iw-c{border-radius:0;padding:14px 16px;box-shadow:0 12px 30px rgba(57,52,54,.15);font-family:"Jost",sans-serif}
+.gm-style .gm-style-iw-d{overflow:hidden!important}
+.iw h4{font-family:"Cormorant Garamond",serif;font-size:20px;margin:0 0 2px;font-weight:500}
+.iw p{margin:0 0 8px;font-size:13px;color:#6b6562}
+.iw a{font-size:13px;margin-right:14px;color:#2f5d5a}
 </style>
 </head>
 <body>
 
-<section class="phase-locator">
-  <div>
-    <label for="pl-q">Vaše město nebo adresa</label>
-    <div class="field">
-      <input id="pl-q" type="text" placeholder="např. Beroun" autocomplete="off">
-      <button id="pl-go" type="button">Najít</button>
-    </div>
-    <button class="locate" id="pl-locate" type="button">Použít moji aktuální polohu</button>
-    <div id="pl-results"><p class="msg">Zadejte město a ukážeme vám nejbližší prodejnu Phase.</p></div>
+<div class="demo">Ukázka pro Phase · vyhledávač nejbližší prodejny na stránce Prodejny · připravilo <strong>View</strong></div>
+
+<header>
+  <div class="nav">
+    <a class="logo" href="https://pohodliphase.cz">phase</a>
+    <ul>
+      <li><a href="https://pohodliphase.cz/sedacky">Sedačky</a></li>
+      <li><a href="https://pohodliphase.cz/kresla">Křesla</a></li>
+      <li><a href="https://pohodliphase.cz/jidelni-stoly">Stoly</a></li>
+      <li><a href="https://pohodliphase.cz/postele">Postele</a></li>
+      <li><a href="https://pohodliphase.cz/koberce">Koberce</a></li>
+      <li><a href="#" class="on">Prodejny</a></li>
+      <li><a href="https://pohodliphase.cz/kontakt">Kontakt</a></li>
+    </ul>
   </div>
-  <div id="pl-map"></div>
-</section>
+</header>
+
+<main>
+  <div class="intro">
+    <h1>Prodejny</h1>
+    <p>Zadejte své město a najdeme vám nejbližší prodejnu Phase – i když ve vašem městě zrovna nejsme.</p>
+  </div>
+
+  <section class="finder">
+      <div class="search">
+        <label for="q">Vaše město, obec nebo adresa</label>
+        <div class="field">
+          <input id="q" type="text" placeholder="např. Beroun, Kolín, Martin…" autocomplete="off">
+          <button id="go" type="button">Najít</button>
+        </div>
+        <button class="locate" id="locate" type="button">Použít moji aktuální polohu</button>
+      </div>
+
+      <div class="results" id="results">
+        <p class="msg">Zkuste třeba <em>Beroun</em>, <em>Kolín</em> nebo <em>Martin</em>.</p>
+        <p class="hint">Máme 15 prodejen v Česku a 9 na Slovensku. Vyhledávání vám ukáže tři nejbližší a dojezd autem.</p>
+      </div>
+
+    <div class="mapwrap"><div id="gmap"></div></div>
+  </section>
+
+  <section class="all">
+    <h2>Všechny prodejny</h2>
+    <div class="cols">
+      <div><h3>Česká republika</h3><ul id="listcz"></ul></div>
+      <div><h3>Slovenská republika</h3><ul id="listsk"></ul></div>
+    </div>
+  </section>
+</main>
+
+<footer>© Phase · Ukázka funkce „nejbližší prodejna" připravená společností View (viewcz.com). Adresy a polohy prodejen jsou orientační a před nasazením se převezmou z Google firemních profilů.</footer>
 
 <script>
-// ---- Prodejny: doplnit přesné adresy a GPS z Google firemních profilů ----
 const STORES = [
- {n:"Praha Zličín – HOMEPARK",    a:"Skandinávská 15a, 155 21 Praha 5",      lat:50.0530, lng:14.2880, url:"https://pohodliphase.cz/prodejny/praha-zlicin-homepark"},
- {n:"Praha Čestlice",             a:"Čestlice",                              lat:49.9960, lng:14.5850, url:"https://pohodliphase.cz/prodejny/praha-cestlice"},
- {n:"Praha Černý Most",           a:"Skorkovská 2457, 198 00 Praha 9",       lat:50.1060, lng:14.5880, url:"https://pohodliphase.cz/prodejny/praha-cerny-most-2"},
- {n:"Praha Butovice",             a:"Radlická 520/117, 158 00 Praha 5",      lat:50.0540, lng:14.3670, url:"https://pohodliphase.cz/prodejny/praha-butovice"},
- {n:"Plzeň",                      a:"Plzeň",                                 lat:49.7475, lng:13.3776, url:"https://pohodliphase.cz/prodejny/plzen"},
- {n:"České Budějovice",           a:"České Budějovice",                      lat:48.9745, lng:14.4743, url:"https://pohodliphase.cz/prodejny/ceske-budejovice"},
- {n:"Liberec",                    a:"Liberec",                               lat:50.7663, lng:15.0543, url:"https://pohodliphase.cz/prodejny/liberec"},
- {n:"Hradec Králové",             a:"Hradec Králové",                        lat:50.2092, lng:15.8328, url:"https://pohodliphase.cz/prodejny/hradec-kralove"},
- {n:"Most",                       a:"Most",                                  lat:50.5030, lng:13.6362, url:"https://pohodliphase.cz/prodejny/most"},
- {n:"Jihlava – AVENTIN",          a:"Jihlava",                               lat:49.4130, lng:15.5900, url:"https://pohodliphase.cz/prodejny/jihlava-aventin"},
- {n:"Brno – AVION Shopping Park", a:"Skandinávská 2, 619 00 Brno",           lat:49.1440, lng:16.6220, url:"https://pohodliphase.cz/prodejny/brno-avion"},
- {n:"Brno – OC SOHO",             a:"Brno",                                  lat:49.1670, lng:16.5980, url:"https://pohodliphase.cz/prodejny/brno-oc-soho"},
- {n:"Olomouc",                    a:"Olomouc",                               lat:49.5938, lng:17.2509, url:"https://pohodliphase.cz/prodejny/olomouc"},
- {n:"Zlín",                       a:"Zlín",                                  lat:49.2265, lng:17.6667, url:"https://pohodliphase.cz/prodejny/zlin"},
- {n:"Ostrava",                    a:"Místecká / Krmelínská 2, 720 00 Ostrava",lat:49.7860, lng:18.2600, url:"https://pohodliphase.cz/prodejny/ostrava"},
- {n:"Bratislava – pri Avione",    a:"Ivanská cesta, Bratislava",             lat:48.1690, lng:17.1780, url:"https://pohodliphase.cz/prodejny/bratislava-pri-avione"},
- {n:"Bratislava – Bory Mall",     a:"Lamač, Bratislava",                     lat:48.2080, lng:17.0300, url:"https://pohodliphase.cz/prodejny/bratislava-bory-mall"},
- {n:"Trnava",                     a:"Trnava",                                lat:48.3774, lng:17.5872, url:"https://pohodliphase.cz/prodejny/trnava"},
- {n:"Nitra",                      a:"Nitra",                                 lat:48.3069, lng:18.0864, url:"https://pohodliphase.cz/prodejny/nitra"},
- {n:"Trenčín",                    a:"Trenčín",                               lat:48.8945, lng:18.0444, url:"https://pohodliphase.cz/prodejny/trencin"},
- {n:"Žilina",                     a:"Žilina",                                lat:49.2231, lng:18.7394, url:"https://pohodliphase.cz/prodejny/zilina"},
- {n:"Banská Bystrica",            a:"Banská Bystrica",                       lat:48.7363, lng:19.1462, url:"https://pohodliphase.cz/prodejny/banska-bystrica"},
- {n:"Košice",                     a:"Košice",                                lat:48.7164, lng:21.2611, url:"https://pohodliphase.cz/prodejny/kosice"},
- {n:"Prešov",                     a:"Prešov",                                lat:48.9986, lng:21.2394, url:"https://pohodliphase.cz/prodejny/presov"},
+ {c:"CZ", n:"Praha Zličín – HOMEPARK",    a:"Skandinávská 15a, 155 21 Praha 5",      lat:50.0530, lng:14.2880, url:"https://pohodliphase.cz/prodejny/praha-zlicin-homepark"},
+ {c:"CZ", n:"Praha Čestlice",             a:"Obchodní zóna Čestlice, Praha-východ",  lat:49.9960, lng:14.5850, url:"https://pohodliphase.cz/prodejny/praha-cestlice"},
+ {c:"CZ", n:"Praha Černý Most",           a:"Skorkovská 2457, 198 00 Praha 9",       lat:50.1060, lng:14.5880, url:"https://pohodliphase.cz/prodejny/praha-cerny-most-2"},
+ {c:"CZ", n:"Praha Butovice",             a:"Radlická 520/117, 158 00 Praha 5",      lat:50.0540, lng:14.3670, url:"https://pohodliphase.cz/prodejny/praha-butovice"},
+ {c:"CZ", n:"Plzeň",                      a:"Plzeň",                                 lat:49.7475, lng:13.3776, url:"https://pohodliphase.cz/prodejny/plzen"},
+ {c:"CZ", n:"České Budějovice",           a:"České Budějovice",                      lat:48.9745, lng:14.4743, url:"https://pohodliphase.cz/prodejny/ceske-budejovice"},
+ {c:"CZ", n:"Liberec",                    a:"Liberec",                               lat:50.7663, lng:15.0543, url:"https://pohodliphase.cz/prodejny/liberec"},
+ {c:"CZ", n:"Hradec Králové",             a:"Hradec Králové",                        lat:50.2092, lng:15.8328, url:"https://pohodliphase.cz/prodejny/hradec-kralove"},
+ {c:"CZ", n:"Most",                       a:"Most",                                  lat:50.5030, lng:13.6362, url:"https://pohodliphase.cz/prodejny/most"},
+ {c:"CZ", n:"Jihlava – AVENTIN",          a:"Jihlava",                               lat:49.4130, lng:15.5900, url:"https://pohodliphase.cz/prodejny/jihlava-aventin"},
+ {c:"CZ", n:"Brno – AVION Shopping Park", a:"Skandinávská 2, 619 00 Brno",           lat:49.1440, lng:16.6220, url:"https://pohodliphase.cz/prodejny/brno-avion"},
+ {c:"CZ", n:"Brno – OC SOHO",             a:"Brno",                                  lat:49.1670, lng:16.5980, url:"https://pohodliphase.cz/prodejny/brno-oc-soho"},
+ {c:"CZ", n:"Olomouc",                    a:"Olomouc",                               lat:49.5938, lng:17.2509, url:"https://pohodliphase.cz/prodejny/olomouc"},
+ {c:"CZ", n:"Zlín",                       a:"Zlín",                                  lat:49.2265, lng:17.6667, url:"https://pohodliphase.cz/prodejny/zlin"},
+ {c:"CZ", n:"Ostrava",                    a:"Místecká / Krmelínská 2, 720 00 Ostrava",lat:49.7860, lng:18.2600, url:"https://pohodliphase.cz/prodejny/ostrava"},
+ {c:"SK", n:"Bratislava – pri Avione",    a:"Ivanská cesta, Bratislava",             lat:48.1690, lng:17.1780, url:"https://pohodliphase.cz/prodejny/bratislava-pri-avione"},
+ {c:"SK", n:"Bratislava – Bory Mall",     a:"Lamač, Bratislava",                     lat:48.2080, lng:17.0300, url:"https://pohodliphase.cz/prodejny/bratislava-bory-mall"},
+ {c:"SK", n:"Trnava",                     a:"Trnava",                                lat:48.3774, lng:17.5872, url:"https://pohodliphase.cz/prodejny/trnava"},
+ {c:"SK", n:"Nitra",                      a:"Nitra",                                 lat:48.3069, lng:18.0864, url:"https://pohodliphase.cz/prodejny/nitra"},
+ {c:"SK", n:"Trenčín",                    a:"Trenčín",                               lat:48.8945, lng:18.0444, url:"https://pohodliphase.cz/prodejny/trencin"},
+ {c:"SK", n:"Žilina",                     a:"Žilina",                                lat:49.2231, lng:18.7394, url:"https://pohodliphase.cz/prodejny/zilina"},
+ {c:"SK", n:"Banská Bystrica",            a:"Banská Bystrica",                       lat:48.7363, lng:19.1462, url:"https://pohodliphase.cz/prodejny/banska-bystrica"},
+ {c:"SK", n:"Košice",                     a:"Košice",                                lat:48.7164, lng:21.2611, url:"https://pohodliphase.cz/prodejny/kosice"},
+ {c:"SK", n:"Prešov",                     a:"Prešov",                                lat:48.9986, lng:21.2394, url:"https://pohodliphase.cz/prodejny/presov"},
 ];
 
+const INK="#393436", ACC="#2f5d5a", DIM="#b9b2aa";
 let map, markers=[], youMarker=null, infoWin;
-
-function km(a,b){const R=6371,r=Math.PI/180;const dLat=(b.lat-a.lat)*r,dLng=(b.lng-a.lng)*r;const h=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+const $=s=>document.querySelector(s);
+const km=(a,b)=>{const R=6371,r=Math.PI/180;const dLat=(b.lat-a.lat)*r,dLng=(b.lng-a.lng)*r;const h=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(h));};
 const navUrl=s=>"https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(s.lat+","+s.lng);
+const pin=(color,r)=>({path:google.maps.SymbolPath.CIRCLE,scale:r,fillColor:color,fillOpacity:1,strokeColor:"#fff",strokeWeight:2});
+
+// tlumený styl mapy ladící s webem Phase
+const MAP_STYLE=[
+ {elementType:"geometry",stylers:[{color:"#f3efe9"}]},
+ {elementType:"labels.text.fill",stylers:[{color:"#6b6562"}]},
+ {elementType:"labels.text.stroke",stylers:[{color:"#ffffff"}]},
+ {featureType:"poi",stylers:[{visibility:"off"}]},
+ {featureType:"road",elementType:"geometry",stylers:[{color:"#ffffff"}]},
+ {featureType:"road.highway",elementType:"geometry",stylers:[{color:"#e6e0d7"}]},
+ {featureType:"road",elementType:"labels.icon",stylers:[{visibility:"off"}]},
+ {featureType:"transit",stylers:[{visibility:"off"}]},
+ {featureType:"water",elementType:"geometry",stylers:[{color:"#d9e2e1"}]},
+ {featureType:"administrative.country",elementType:"geometry.stroke",stylers:[{color:"#a9a197"}]},
+ {featureType:"landscape.natural",elementType:"geometry",stylers:[{color:"#ede8e0"}]},
+];
 
 function initMap(){
-  map=new google.maps.Map(document.getElementById("pl-map"),{
-    center:{lat:49.4,lng:17.2}, zoom:6, mapTypeControl:false, streetViewControl:false,
-    styles:[{featureType:"poi",stylers:[{visibility:"off"}]}]
-  });
+  map=new google.maps.Map($("#gmap"),{center:{lat:49.4,lng:17.2},zoom:6,styles:MAP_STYLE,mapTypeControl:false,streetViewControl:false,fullscreenControl:false});
   infoWin=new google.maps.InfoWindow();
   STORES.forEach((s,i)=>{
-    const m=new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,title:s.n});
-    m.addListener("click",()=>{infoWin.setContent(`<strong>${s.n}</strong><br>${s.a}<br><a href="${navUrl(s)}" target="_blank" rel="noopener">Navigovat</a> · <a href="${s.url}">Detail prodejny</a>`);infoWin.open(map,m);});
+    const m=new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,title:s.n,icon:pin(INK,7)});
+    m.addListener("click",()=>openInfo(i));
     markers.push(m);
   });
-
-  // našeptávač Google Places – jen ČR a SR
-  const input=document.getElementById("pl-q");
+  const input=$("#q");
   const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:["cz","sk"]},fields:["geometry","name","formatted_address"]});
-  ac.addListener("place_changed",()=>{
-    const p=ac.getPlace(); if(!p.geometry) return;
-    find({name:p.name||p.formatted_address,lat:p.geometry.location.lat(),lng:p.geometry.location.lng()});
-  });
-  document.getElementById("pl-go").addEventListener("click",()=>{
-    // pokud uživatel nevybral z našeptávače, geokódujeme text
-    new google.maps.Geocoder().geocode({address:input.value,region:"cz"},(res,st)=>{
-      if(st==="OK"&&res[0]) find({name:input.value,lat:res[0].geometry.location.lat(),lng:res[0].geometry.location.lng()});
-    });
-  });
-  document.getElementById("pl-locate").addEventListener("click",()=>{
-    navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>find({name:"Vaše poloha",lat:p.coords.latitude,lng:p.coords.longitude}));
+  ac.addListener("place_changed",()=>{const p=ac.getPlace();if(!p.geometry)return;find({name:p.name||p.formatted_address,lat:p.geometry.location.lat(),lng:p.geometry.location.lng()});});
+  const go=()=>{const v=input.value.trim();if(!v)return;new google.maps.Geocoder().geocode({address:v,region:"cz"},(res,st)=>{
+    if(st==="OK"&&res[0])find({name:res[0].address_components[0].long_name||v,lat:res[0].geometry.location.lat(),lng:res[0].geometry.location.lng()});
+    else $("#results").innerHTML=`<p class="msg">Místo „${v}" jsme nenašli.</p><p class="hint">Zkuste název města nebo vyberte z našeptávače.</p>`;});};
+  $("#go").addEventListener("click",go);
+  input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!document.querySelector(".pac-item-selected")){e.preventDefault();setTimeout(go,150);}});
+  $("#locate").addEventListener("click",()=>{
+    if(!navigator.geolocation)return;$("#locate").textContent="Zjišťuji polohu…";
+    navigator.geolocation.getCurrentPosition(p=>{$("#locate").textContent="Použít moji aktuální polohu";input.value="";find({name:"Vaše poloha",lat:p.coords.latitude,lng:p.coords.longitude});},
+      ()=>{$("#locate").textContent="Polohu se nepodařilo zjistit – zadejte město";});
   });
 }
-
+function openInfo(i){
+  const s=STORES[i];
+  infoWin.setContent(`<div class="iw"><h4>${s.n}</h4><p>${s.a}</p><a href="${navUrl(s)}" target="_blank" rel="noopener">Navigovat</a><a href="${s.url}">Detail prodejny</a></div>`);
+  infoWin.open(map,markers[i]);
+}
 function find(place){
   const ranked=STORES.map((s,i)=>({...s,i,d:km(place,s)})).sort((a,b)=>a.d-b.d).slice(0,3);
-  // zvýraznění na mapě
-  markers.forEach((m,i)=>m.setOpacity(i===ranked[0].i?1:0.45));
-  if(youMarker) youMarker.setMap(null);
-  youMarker=new google.maps.Marker({position:{lat:place.lat,lng:place.lng},map,title:place.name,
-    icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#2f5d5a",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});
-  const b=new google.maps.LatLngBounds(); b.extend(youMarker.getPosition()); b.extend(markers[ranked[0].i].getPosition()); map.fitBounds(b,80);
-
-  // skutečný dojezd autem (Distance Matrix) pro 3 nejbližší
-  new google.maps.DistanceMatrixService().getDistanceMatrix({
-    origins:[{lat:place.lat,lng:place.lng}],
-    destinations:ranked.map(s=>({lat:s.lat,lng:s.lng})),
-    travelMode:"DRIVING"
-  },(res,st)=>{
+  markers.forEach((m,i)=>m.setIcon(pin(i===ranked[0].i?ACC:DIM,i===ranked[0].i?9:6)));
+  if(youMarker)youMarker.setMap(null);
+  youMarker=new google.maps.Marker({position:{lat:place.lat,lng:place.lng},map,title:place.name,icon:pin(ACC,6),zIndex:99});
+  const b=new google.maps.LatLngBounds();b.extend(youMarker.getPosition());b.extend(markers[ranked[0].i].getPosition());map.fitBounds(b,{top:80,bottom:60,left:60,right:60});
+  infoWin.close();
+  new google.maps.DistanceMatrixService().getDistanceMatrix({origins:[{lat:place.lat,lng:place.lng}],destinations:ranked.map(s=>({lat:s.lat,lng:s.lng})),travelMode:"DRIVING"},(res,st)=>{
     const rows=(st==="OK"&&res.rows[0].elements)||[];
-    ranked.forEach((s,k)=>{const e=rows[k]; if(e&&e.status==="OK"){s.drive=e.distance.text; s.time=e.duration.text;}});
+    ranked.forEach((s,k)=>{const e=rows[k];if(e&&e.status==="OK"){s.drive=e.distance.text;s.time=e.duration.text;}});
     render(place,ranked);
   });
 }
-
 function render(place,ranked){
   const best=ranked[0];
-  const head=best.d<9?`Prodejnu máme přímo u vás: <strong>${best.n}</strong>.`:`V místě <strong>${place.name}</strong> prodejnu nemáme – nejblíž je <strong>${best.n}</strong>${best.time?` (${best.time} autem)`:""}.`;
-  document.getElementById("pl-results").innerHTML=`<p class="msg">${head}</p>`+ranked.map((s,k)=>`
+  const head=best.d<9?`Přímo u vás máme prodejnu <em>${best.n}</em>.`:`V místě <em>${place.name}</em> prodejnu nemáme, nejblíž je <em>${best.n}</em>${best.time?` – ${best.time} autem`:` – ${Math.round(best.d)} km od vás`}.`;
+  $("#results").innerHTML=`<p class="msg">${head}</p>`+ranked.map((s,k)=>`
     <div class="store ${k===0?"best":""}">
-      <div><h3>${s.n}</h3><p>${s.a}</p></div>
+      <div><h3>${s.n}</h3><p class="addr">${s.a}</p></div>
       <div class="dist">${s.drive||Math.round(s.d)+" km"}<small>${s.time?s.time+" autem":"vzdušnou čarou"}</small></div>
-      <div class="acts"><a href="${navUrl(s)}" target="_blank" rel="noopener">Navigovat</a><a href="${s.url}">Detail prodejny</a></div>
+      <div class="acts"><a href="${navUrl(s)}" target="_blank" rel="noopener">Navigovat</a><a href="#" data-i="${s.i}" class="onmap">Ukázat na mapě</a><a href="${s.url}">Detail prodejny</a></div>
     </div>`).join("");
+  document.querySelectorAll(".onmap").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();const i=+a.dataset.i;map.panTo(markers[i].getPosition());map.setZoom(14);openInfo(i);$("#gmap").scrollIntoView({behavior:"smooth",block:"nearest"});}));
 }
+STORES.forEach((s,i)=>{
+  const li=document.createElement("li");
+  li.innerHTML=`<div><b>${s.n}</b><br><span>${s.a}</span></div><button type="button">Na mapě</button>`;
+  li.querySelector("button").addEventListener("click",()=>{map.panTo(markers[i].getPosition());map.setZoom(14);openInfo(i);window.scrollTo({top:0,behavior:"smooth"});});
+  $(s.c==="CZ"?"#listcz":"#listsk").appendChild(li);
+});
 </script>
 <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAnwJg7hLl05s-usDuSvrcM3nnu90dRczI&libraries=places&callback=initMap&language=cs&region=CZ"></script>
 </body>
